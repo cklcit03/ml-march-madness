@@ -15,7 +15,7 @@
 
 # Machine Learning March Madness
 # Apply ML methods to predict outcome of 2014 NCAA Tournament
-from matplotlib import pyplot
+from scipy.optimize import fmin_ncg
 import numpy
 import itertools
 import math
@@ -28,8 +28,82 @@ class Error(Exception):
         return repr(self.value)
 
 
-def parse_prev_tourney_results(prev_tourney_results):
-    """ Parses matrix of previous tournament results.
+def compute_sigmoid(z):
+    """ Computes sigmoid function.
+
+    Args:
+      z: Can be a scalar, a vector or a matrix.
+
+    Returns:
+      sigmoid_z: Sigmoid function value.
+    """
+    sigmoid_z = 1/(1+numpy.exp(-z))
+    return sigmoid_z
+
+
+def compute_cost(theta, X, y, num_train_ex):
+    """ Computes cost function J(\theta).
+
+    Args:
+      theta: Vector of parameters for logistic regression.
+      X: Matrix of features.
+      y: Vector of labels.
+      num_train_ex: Number of training examples.
+
+    Returns:
+      j_theta: Logistic regression cost.
+
+    Raises:
+      An error occurs if the number of features is 0.
+      An error occurs if the number of training examples is 0.
+    """
+    if (num_train_ex == 0): raise Error('num_train_ex = 0')
+    num_features = X.shape[1]
+    if num_features == 0: raise Error('num_features = 0')
+    theta = numpy.reshape(theta, (num_features, 1), order='F')
+    h_theta = compute_sigmoid(numpy.dot(X, theta))
+    j_theta = (numpy.sum(numpy.subtract(numpy.multiply(-y, numpy.log(h_theta)),
+                                        numpy.multiply((1-y),
+                                                       numpy.log(1-h_theta))),
+                         axis=0))/num_train_ex
+    return j_theta
+
+
+def compute_gradient(theta, X, y, num_train_ex):
+    """ Computes gradient of cost function J(\theta).
+
+    Args:
+      theta: Vector of parameters for logistic regression.
+      X: Matrix of features.
+      y: Vector of labels.
+      num_train_ex: Number of training examples.
+
+    Returns:
+      grad_array_flat: Vector of logistic regression gradients
+                       (one per feature).
+
+    Raises:
+      An error occurs if the number of features is 0.
+      An error occurs if the number of training examples is 0.
+    """
+    if (num_train_ex == 0): raise Error('num_train_ex = 0')
+    num_features = X.shape[1]
+    if num_features == 0: raise Error('num_features = 0')
+    theta = numpy.reshape(theta, (num_features, 1), order='F')
+    h_theta = compute_sigmoid(numpy.dot(X, theta))
+    grad_array = numpy.zeros((num_features, 1))
+    for grad_index in range(0, num_features):
+        grad_term = numpy.multiply(numpy.reshape(X[:, grad_index],
+                                                 (num_train_ex, 1)),
+                                   numpy.subtract(h_theta, y))
+        grad_array[grad_index] = (numpy.sum(grad_term, axis=0))/num_train_ex
+    grad_array_flat = numpy.ndarray.flatten(grad_array)
+    return grad_array_flat
+
+
+def gen_train_results(prev_tourney_results):
+    """ Generates matrix of training results by parsing data from previous
+        tournaments.
 
     Args:
       prev_tourney_results: Matrix of previous tournament results that consists
@@ -43,22 +117,22 @@ def parse_prev_tourney_results(prev_tourney_results):
                             Column 7: number of overtime periods
 
     Returns:
-      parsed_prev_tourney_results: Matrix that consists of these columns:
-                                   Column 1: character denoting season ID
-                                   Column 2: integer denoting ID of team A
-                                   Column 3: integer denoting ID of team B
-                                             (assume that in each row, value in
-                                             Column 3 exceeds that of value in
-                                             Column 2)
-                                   Column 4: 0 if team A lost to team B;
-                                             otherwise, 1
+      training_data: Matrix that consists of these columns:
+                     Column 1: integer denoting season ID
+                     Column 2: integer denoting ID of team A
+                     Column 3: integer denoting ID of team B (assume that in
+                     each row, value in Column 3 exceeds value in Column 2)
+                     Column 4: 0 if team A lost to team B; otherwise, 1 (assume
+                     that A and B played in that season's tournament)
+                     Column(s) of training features will be added by other
+                     functions
     """
-    num_prev_tourney_games = prev_tourney_results.shape[0]
-    parsed_prev_tourney_results = numpy.zeros((num_prev_tourney_games, 4))
+    num_prev_tourney_games = prev_tourney_results.shape[0]-1
+    training_data = numpy.zeros((num_prev_tourney_games, 4))
     for prev_tourney_game_idx in range(0, num_prev_tourney_games):
-        season_id = prev_tourney_results[prev_tourney_game_idx, 0]
-        winning_team_id = prev_tourney_results[prev_tourney_game_idx, 2]
-        losing_team_id = prev_tourney_results[prev_tourney_game_idx, 4]
+        season_id = prev_tourney_results[prev_tourney_game_idx+1, 0]
+        winning_team_id = prev_tourney_results[prev_tourney_game_idx+1, 2]
+        losing_team_id = prev_tourney_results[prev_tourney_game_idx+1, 4]
         if (winning_team_id < losing_team_id):
             team_A = winning_team_id
             team_B = losing_team_id
@@ -67,11 +141,130 @@ def parse_prev_tourney_results(prev_tourney_results):
             team_A = losing_team_id
             team_B = winning_team_id
             outcome = 0
-        parsed_prev_tourney_results[prev_tourney_game_idx, 0] = season_id
-        parsed_prev_tourney_results[prev_tourney_game_idx, 1] = team_A
-        parsed_prev_tourney_results[prev_tourney_game_idx, 2] = team_B
-        parsed_prev_tourney_results[prev_tourney_game_idx, 3] = outcome
-    return parsed_prev_tourney_results
+        training_data[prev_tourney_game_idx, 0] = ord(season_id)
+        training_data[prev_tourney_game_idx, 1] = team_A
+        training_data[prev_tourney_game_idx, 2] = team_B
+        training_data[prev_tourney_game_idx, 3] = outcome
+    return training_data
+
+
+def gen_point_differential(regular_season_results, team_ids, training_data,
+                           current_season_id):
+    """ Generates matrix of point differentials between teams A and B for each
+        season of interest.
+
+    Args:
+      regular_season_results: Matrix of regular season results that
+                              consists of these columns:
+                              Column 1: character denoting season ID
+                              Column 2: integer denoting ID of date of game
+                              Column 3: integer denoting ID of winning team
+                              Column 4: integer denoting score of winning team
+                              Column 5: integer denoting ID of losing team
+                              Column 6: integer denoting score of losing team
+                              Column 7: character denoting location of winning
+                                        team
+                              Column 8: number of overtime periods
+      team_ids: Vector of team IDs.
+      training_data: Matrix that consists of these columns:
+                     Column 1: character denoting season ID
+                     Column 2: integer denoting ID of team A
+                     Column 3: integer denoting ID of team B (assume that in
+                     each row, value in Column 3 exceeds value in Column 2)
+                     Column 4: 0 if team A lost to team B; otherwise, 1 (assume
+                     that A and B played in that season's tournament)
+      current_season_id: Integer denoting ID of current season
+
+    Returns:
+      return_list: List of two objects.
+                   point_diff_mat: Matrix that consists of these columns:
+                                   Column 1: integer denoting season ID
+                                   Column 2: integer denoting ID of team A
+                                   Column 3: integer denoting ID of team B
+                                   (assume that in each row, value in Column 3
+                                   exceeds value in Column 2)
+                                   Column 4: 0 if team A lost to team B;
+                                   otherwise, 1 (assume that A and B played in
+                                   that season's tournament)
+                                   Column 5: difference between point
+                                   differential of team A and point differential
+                                   of team B for this season
+                   curr_season_mat: Matrix that consists of these columns:
+                                    Column 1: integer denoting current season ID
+                                    Column 2: integer denoting ID of team A
+                                    Column 3: integer denoting ID of team B
+                                    (assume that in each row, value in Column 3
+                                    exceeds value in Column 2)
+                                    Column 4: difference between point
+                                    differential of team A and point
+                                    differential of team B for current season
+    """
+    curr_const = 0.001
+    regular_season_results_no_header = regular_season_results[1:, :]
+    season_ids = regular_season_results_no_header[:, 0]
+    unique_season_ids = numpy.unique(season_ids)
+    num_unique_seasons = unique_season_ids.shape[0]
+    tmp_vec = curr_const*numpy.ones((training_data.shape[0], 1))
+    point_diff_mat = numpy.c_[training_data, tmp_vec]
+    for season_idx in range(0, num_unique_seasons):
+        game_indices = numpy.where(season_ids == unique_season_ids[season_idx])
+        season_results = regular_season_results_no_header[game_indices[0], :]
+
+        # For each season, compute point differential for each team
+        winner_ids = season_results[:, 2].astype(float)
+        winner_scores = season_results[:, 3].astype(float)
+        loser_ids = season_results[:, 4].astype(float)
+        loser_scores = season_results[:, 5].astype(float)
+        net_differential = curr_const*numpy.ones((team_ids.shape[0], 1))
+        for team_idx in range(0, team_ids.shape[0]):
+            curr_team = team_ids[team_idx].astype(float)
+            win_indices = numpy.where(winner_ids == curr_team)
+            loss_indices = numpy.where(loser_ids == curr_team)
+            if (len(win_indices[0]) > 0) and (len(loss_indices[0]) > 0):
+                win_diff = numpy.subtract(winner_scores[win_indices[0]],
+                                          loser_scores[win_indices[0]])
+                loss_diff = numpy.subtract(winner_scores[loss_indices[0]],
+                                           loser_scores[loss_indices[0]])
+                total_win_diff = numpy.sum(win_diff)
+                total_loss_diff = numpy.sum(loss_diff)
+                # total_win_diff = numpy.mean(win_diff)
+                # total_loss_diff = numpy.mean(loss_diff)
+                net_differential[team_idx] = total_win_diff-total_loss_diff
+
+        # For each season, consider all (team A, team B) pairings where teams A
+        # and B played each other in the tournament
+        # Compute difference between point differentials of teams A and B
+        season_id = ord(unique_season_ids[season_idx])
+        if (season_id != current_season_id): 
+            season_idx = numpy.where((point_diff_mat[:, 0] == season_id))
+            for pair_idx in season_idx[0]:
+                idA = point_diff_mat[pair_idx, 1]
+                idB = point_diff_mat[pair_idx, 2]
+                idA_idx = numpy.where(team_ids == idA)
+                idB_idx = numpy.where(team_ids == idB)
+                net_diffA = net_differential[idA_idx[0]]
+                net_diffB = net_differential[idB_idx[0]]
+                if (net_diffA != curr_const) and (net_diffB != curr_const):
+                    point_diff_mat[pair_idx, 4] = net_diffA-net_diffB
+        else:
+            team_ids_list = team_ids.tolist()
+            team_id_pairs = itertools.combinations(team_ids_list, 2)
+            team_id_pairs_array = numpy.asarray(list(team_id_pairs))
+            curr_season_mat = numpy.zeros((team_id_pairs_array.shape[0], 4))
+            for pair_idx in range(0, team_id_pairs_array.shape[0]):
+                idA = team_id_pairs_array[pair_idx, 0]
+                idB = team_id_pairs_array[pair_idx, 1]
+                idA_idx = numpy.where(team_ids == idA)
+                idB_idx = numpy.where(team_ids == idB)
+                net_diffA = net_differential[idA_idx[0]]
+                net_diffB = net_differential[idB_idx[0]]
+                curr_season_mat[pair_idx, 0] = current_season_id
+                curr_season_mat[pair_idx, 1] = idA
+                curr_season_mat[pair_idx, 2] = idB
+                curr_season_mat[pair_idx, 3] = net_diffA-net_diffB
+    return_list = {'point_diff_mat': point_diff_mat,
+                   'curr_season_mat': curr_season_mat}
+    return return_list
 
 
 def coin_flip(team_ids):
@@ -86,7 +279,6 @@ def coin_flip(team_ids):
                 0.5.  Only unordered pairings of teams appear in this matrix.
     """
     team_ids_list = team_ids.tolist()
-    team_ids_list.pop(0)
     team_id_pairs = itertools.combinations(team_ids_list, 2)
     team_id_pairs_array = numpy.asarray(list(team_id_pairs))
     coin_flips = 0.5*numpy.ones((team_id_pairs_array.shape[0], 1))
@@ -214,21 +406,60 @@ def main():
     """
     print("Loading list of teams.")
     teams = numpy.genfromtxt("teams.csv", delimiter=",")
-    team_ids = teams[:, 0]
+    team_ids = teams[1:, 0]
     print("Loading regular season results.")
     regular_season_results = numpy.genfromtxt("regular_season_results.csv",
-                                              delimiter=",")
+                                              dtype=object, delimiter=",")
     print("Loading previous tournament results.")
     prev_tourney_results = numpy.genfromtxt("tourney_results.csv",
-                                            delimiter=",")
+                                            dtype=object, delimiter=",")
 
-    # Parse previous tournament results
-    prev_tourney_mat = parse_prev_tourney_results(prev_tourney_results)
+    # Generate training results
+    training_mat = gen_train_results(prev_tourney_results)
 
-    # Generate predictions and raw submission file
+    # Logistic regression algorithm
+    # Compute point differential between teams A and B for each season (except
+    # for current season)
+    file_name = "point_differential.csv"
+    current_season_id = 83
+    point_diff_mat_list = gen_point_differential(regular_season_results,
+                                                 team_ids, training_mat,
+                                                 current_season_id)
+    point_diff_mat = point_diff_mat_list['point_diff_mat']
+    train_idx1 = numpy.where(point_diff_mat[:, 0] != current_season_id)
+    train_idx2 = numpy.where(point_diff_mat[:, 4] != 0.001)
+    training_indices = numpy.intersect1d(train_idx1[0], train_idx2[0])
+    training_mat_aug = point_diff_mat[training_indices, :]
+    num_features = 1
+    num_train_ex = training_mat_aug.shape[0]
+    ones_vec = numpy.ones((training_mat_aug.shape[0], 1))
+    x_mat = training_mat_aug[:, 4]
+    x_mat_aug = numpy.c_[ones_vec, x_mat]
+    y_vec = numpy.reshape(training_mat_aug[:, 3], (num_train_ex, 1))
+    theta_vec = numpy.zeros((num_features+1, 1))
+    theta_vec_flat = numpy.ndarray.flatten(theta_vec)
+    f_min_ncg_out = fmin_ncg(compute_cost, theta_vec_flat,
+                             fprime=compute_gradient, args=(x_mat_aug, y_vec,
+                                                            num_train_ex),
+                             avextol=1e-10, epsilon=1e-10, maxiter=400,
+                             full_output=1)
+    theta_opt = numpy.reshape(f_min_ncg_out[0], (num_features+1, 1), order='F')
+    print("theta:")
+    print("%s\n" % numpy.array_str(numpy.round(theta_opt, 6)))
+    curr_season_mat = point_diff_mat_list['curr_season_mat']
+    ones_test_vec = numpy.ones((curr_season_mat.shape[0], 1))
+    x_test_mat = curr_season_mat[:, 3]
+    x_test_mat_aug = numpy.c_[ones_test_vec, x_test_mat]
+    winning_prob = compute_sigmoid(numpy.dot(x_test_mat_aug, theta_opt))
+    init_pred_mat = coin_flip(team_ids)
+    pred_mat = numpy.c_[init_pred_mat[:, 0:2], winning_prob]
+
+    # Coin-flip algorithm
+    # file_name = "coin_flips.csv"
+    # pred_mat = coin_flip(team_ids)
+
+    # Generate raw submission file
     # file_name = "sample_submission.csv"
-    file_name = "coin_flips.csv"
-    pred_mat = coin_flip(team_ids)
     gen_raw_submission(file_name, pred_mat)
 
     # Load raw submission file
