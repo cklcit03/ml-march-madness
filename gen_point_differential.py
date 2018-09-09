@@ -87,15 +87,25 @@ def gen_point_differential(regular_season_results, team_ids, training_data,
     curr_const_mat = curr_const*numpy.ones((training_data.shape[0], 2))
     point_diff_mat = numpy.c_[training_data, curr_const_mat]
     tourney_point_diff_mat = numpy.c_[training_data, curr_const_mat]
+    day_cutoff = 0
     for season_idx in range(0, num_unique_seasons):
         season_id = ord(unique_season_ids[season_idx])
         game_indices = numpy.where(season_ids == unique_season_ids[season_idx])
         season_results = regular_season_results_no_header[game_indices[0], :]
+        game_days = season_results[:, 1].astype(float)
         winner_ids = season_results[:, 2].astype(float)
         winner_scores = season_results[:, 3].astype(float)
         loser_ids = season_results[:, 4].astype(float)
         loser_scores = season_results[:, 5].astype(float)
         locations = season_results[:, 6]
+
+        # For each season, focus on late-season performance
+        late_indices = numpy.where(game_days > day_cutoff)
+        winner_ids = winner_ids[late_indices[0]]
+        winner_scores = winner_scores[late_indices[0]]
+        loser_ids = loser_ids[late_indices[0]]
+        loser_scores = loser_scores[late_indices[0]]
+        locations = locations[late_indices[0]]
 
         # For each season, determine list of teams in tournament
         tourney_team_indices = (
@@ -175,6 +185,7 @@ def gen_point_differential(regular_season_results, team_ids, training_data,
             if (len(win_indices[0]) > 0 or len(loss_indices[0]) > 0):
                 net_differential[team_idx] = total_win_diff-total_loss_diff
                 net_away_diff[team_idx] = num_away_wins-num_away_losses
+                # net_away_diff[team_idx] = num_away_losses
             if (num_tourney_wins > 0 or num_tourney_losses > 0):
                 net_tourney_differential[team_idx] = (
                     total_tourney_win_diff-total_tourney_loss_diff)

@@ -17,6 +17,7 @@
 # Apply ML methods to predict outcome of 2014 NCAA Tournament
 from matplotlib import pyplot
 from scipy.optimize import fmin_ncg
+from gen_elo_differential import gen_elo_differential
 from gen_point_differential import gen_point_differential
 from gen_seed_difference import gen_seed_difference
 import numpy
@@ -35,10 +36,8 @@ def feature_normalize(x):
     """ Performs feature normalization.
     Args:
       x: Vector of training data.
-
     Returns:
       y: Vector of normalized training data.
-
     Raises:
       An error occurs if the number of training examples is 0.
     """
@@ -52,11 +51,9 @@ def feature_normalize(x):
 
 def plot_data(x, y):
     """ Plots data.
-
     Args:
       x: Features to be plotted.
       y: Data labels.
-
     Returns:
       None.
     """
@@ -76,12 +73,10 @@ def plot_data(x, y):
 
 def plot_decision_boundary(x, y, theta):
     """ Plots decision boundary.
-
     Args:
       x: Features that have already been plotted.
       y: Data labels.
       theta: Parameter that determines slope of decision boundary.
-
     Returns:
       None.
     """
@@ -95,10 +90,8 @@ def plot_decision_boundary(x, y, theta):
 
 def compute_sigmoid(z):
     """ Computes sigmoid function.
-
     Args:
       z: Can be a scalar, a vector or a matrix.
-
     Returns:
       sigmoid_z: Sigmoid function value.
     """
@@ -108,16 +101,13 @@ def compute_sigmoid(z):
 
 def compute_cost(theta, X, y, num_train_ex):
     """ Computes cost function J(\theta).
-
     Args:
       theta: Vector of parameters for logistic regression.
       X: Matrix of features.
       y: Vector of labels.
       num_train_ex: Number of training examples.
-
     Returns:
       j_theta: Logistic regression cost.
-
     Raises:
       An error occurs if the number of features is 0.
       An error occurs if the number of training examples is 0.
@@ -136,17 +126,14 @@ def compute_cost(theta, X, y, num_train_ex):
 
 def compute_cost_reg(theta, X, y, num_train_ex, lamb):
     """ Computes regularized cost function J(\theta).
-
     Args:
       theta: Vector of parameters for regularized logistic regression.
       X: Matrix of features.
       y: Vector of labels.
       num_train_ex: Number of training examples.
       lamb: Regularization parameter.
-
     Returns:
       j_theta_reg: Regularized logistic regression cost.
-
     Raises:
       An error occurs if the number of features is 0.
       An error occurs if the number of training examples is 0.
@@ -169,17 +156,14 @@ def compute_cost_reg(theta, X, y, num_train_ex, lamb):
 
 def compute_gradient(theta, X, y, num_train_ex):
     """ Computes gradient of cost function J(\theta).
-
     Args:
       theta: Vector of parameters for logistic regression.
       X: Matrix of features.
       y: Vector of labels.
       num_train_ex: Number of training examples.
-
     Returns:
       grad_array_flat: Vector of logistic regression gradients
                        (one per feature).
-
     Raises:
       An error occurs if the number of features is 0.
       An error occurs if the number of training examples is 0.
@@ -207,11 +191,9 @@ def compute_gradient_reg(theta, X, y, num_train_ex, lamb):
       y: Vector of labels.
       num_train_ex: Number of training examples.
       lamb: Regularization parameter.
-
     Returns:
       grad_array_reg_flat: Vector of regularized logistic regression gradients
                            (one per feature).
-
     Raises:
       An error occurs if the number of features is 0.
       An error occurs if the number of training examples is 0.
@@ -238,7 +220,6 @@ def compute_gradient_reg(theta, X, y, num_train_ex, lamb):
 def gen_train_results(prev_tourney_results):
     """ Generates matrix of training results by parsing data from previous
         tournaments.
-
     Args:
       prev_tourney_results: Matrix of previous tournament results that consists
                             of these columns:
@@ -249,7 +230,6 @@ def gen_train_results(prev_tourney_results):
                             Column 5: integer denoting ID of losing team
                             Column 6: integer denoting score of losing team
                             Column 7: number of overtime periods
-
     Returns:
       training_data: Matrix that consists of these columns:
                      Column 1: integer denoting season ID
@@ -284,10 +264,8 @@ def gen_train_results(prev_tourney_results):
 
 def coin_flip(team_ids):
     """ Generates coin-flip predictions.
-
     Args:
       team_ids: Vector of team IDs.
-
     Returns:
       pred_mat: Matrix of coin-flip predictions, where first and second columns
                 include IDs of distinct teams; each entry in third column is
@@ -303,14 +281,12 @@ def coin_flip(team_ids):
 
 def gen_raw_submission(file_name, pred_mat):
     """ Generates raw submission file.
-
     Args:
       file_name: Name of raw submission file.
       pred_mat: Matrix of predictions, where first and second columns include
                 IDs of distinct teams; each entry in third column is probability
                 that team in first column defeats team in second column.  Only
                 unordered pairings of teams appear in this matrix.
-
     Returns:
       None.
     """
@@ -329,13 +305,11 @@ def gen_raw_submission(file_name, pred_mat):
 
 def parse_raw_submission(raw_submission):
     """ Parses raw submission input and returns matrix.
-
     Args:
       raw_submission: Matrix of raw submission input, where first column
                       includes entries of the form "S_A_B" where A and B are the
                       IDs of two teams; second column includes probabilities
                       that team A will defeat team B.
-
     Returns:
       parsed_submission: Matrix with three columns, where first and second
                          columns include IDs of above-mentioned teams A and B,
@@ -361,7 +335,6 @@ def parse_raw_submission(raw_submission):
 
 def evaluate_submission(results, submission):
     """ Computes predicted binomial deviance between results and submission.
-
     Args:
       results: Matrix of tournament results, where each row represents a game;
                third and fifth columns include IDs of winning and losing teams,
@@ -369,7 +342,6 @@ def evaluate_submission(results, submission):
       submission: Matrix of submissions, where each row represents a game; first
                   column includes IDs of two teams and second column includes
                   probability that first team wins.
-
     Returns:
       log_loss: Predicted binomial deviance.
     """
@@ -439,12 +411,19 @@ def main():
     training_mat = gen_train_results(prev_tourney_results)
 
     # Logistic regression algorithm
+    curr_const = 0.001
     current_season_id = 83
 
-    # Compute point differential between teams A and B for each season (except
-    # for current season)
+    # Compute Elo differential between teams A and B for each season
+    # file_name = "elo_differential.csv"
+    elo_diff_mat_list = gen_elo_differential(regular_season_results, team_ids,
+                                             training_mat, current_season_id)
+    elo_diff_mat = elo_diff_mat_list['elo_diff_mat']
+    elo_idx = numpy.where(elo_diff_mat[:, 0] != current_season_id)
+    elo_idx = numpy.intersect1d(elo_idx[0], elo_idx[0])
+
+    # Compute point differential between teams A and B for each season
     # file_name = "point_differential.csv"
-    curr_const = 0.001
     point_diff_mat_list = gen_point_differential(regular_season_results,
                                                  team_ids, training_mat,
                                                  current_season_id,
@@ -452,34 +431,39 @@ def main():
     point_diff_mat = point_diff_mat_list['point_diff_mat']
     t_point_diff_mat = point_diff_mat_list['tourney_point_diff_mat']
     pick_diff_mat = point_diff_mat
-    pick_col = 4
     # pick_diff_mat = t_point_diff_mat
+    pick_col = 4
     # pick_col = 5
+    pick_idx1 = numpy.where(pick_diff_mat[:, 0] != current_season_id)
+    pick_idx2 = numpy.where(pick_diff_mat[:, pick_col] != curr_const)
+    pick_idx = numpy.intersect1d(pick_idx1[0], pick_idx2[0])
 
     # Compute seed difference between teams A and B for each season (where teams
     # A and B are both in that season's tournament)
-    file_name = "seed_difference.csv"
-    seed_diff_mat_list = gen_seed_difference(tournament_seeds, team_ids,
-                                             training_mat, current_season_id,
-                                             curr_const)
-    seed_diff_mat = seed_diff_mat_list['seed_diff_mat']
+    # file_name = "seed_difference.csv"
+    # seed_diff_mat_list = gen_seed_difference(tournament_seeds, team_ids,
+    #                                          training_mat, current_season_id,
+    #                                          curr_const)
+    # seed_diff_mat = seed_diff_mat_list['seed_diff_mat']
+    # seed_idx1 = numpy.where(seed_diff_mat[:, 0] != current_season_id)
+    # seed_idx2 = numpy.where(seed_diff_mat[:, 4] != curr_const)
+    # seed_idx = numpy.intersect1d(seed_idx1[0], seed_idx2[0])
 
-    # Plot point differential and seed difference between teams A and B
-    focus_idx1 = numpy.where(pick_diff_mat[:, 0] != current_season_id)
-    focus_idx2 = numpy.where(pick_diff_mat[:, pick_col] != curr_const)
-    focus_idx3 = numpy.where(seed_diff_mat[:, 0] != current_season_id)
-    focus_idx4 = numpy.where(seed_diff_mat[:, 4] != curr_const)
-    focus_idx12 = numpy.intersect1d(focus_idx1[0], focus_idx2[0])
-    focus_idx34 = numpy.intersect1d(focus_idx3[0], focus_idx4[0])
-    focus_idx = numpy.intersect1d(focus_idx12, focus_idx34)
-    feature_1_scale = feature_normalize(pick_diff_mat[focus_idx, pick_col])
-    feature_2_scale = feature_normalize(seed_diff_mat[focus_idx, 4])
-    x_mat = numpy.c_[feature_1_scale, feature_2_scale]
-    label_vec = pick_diff_mat[focus_idx, 3]
+    # Set training features and labels
+    focus_idx = numpy.intersect1d(elo_idx, pick_idx)
+    # focus_idx = numpy.intersect1d(elo_idx, seed_idx)
+    feature_elo_scale = feature_normalize(elo_diff_mat[focus_idx, 4])
+    feature_pick_scale = feature_normalize(pick_diff_mat[focus_idx, pick_col])
+    # feature_seed_scale = feature_normalize(seed_diff_mat[focus_idx, 4])
+    x_mat = numpy.c_[feature_elo_scale, feature_pick_scale]
+    # x_mat = numpy.c_[feature_elo_scale, feature_seed_scale]
+    # x_mat = numpy.reshape(feature_elo_scale, (feature_elo_scale.shape[0], 1))
+    label_vec = elo_diff_mat[focus_idx, 3]
 
     # Run nonconjugate gradient algorithm
     num_features = x_mat.shape[1]
     num_train_ex = x_mat.shape[0]
+    # print("num_features = %d" % num_features)
     # print("num_train_ex = %d" % num_train_ex)
     ones_vec = numpy.ones((num_train_ex, 1))
     x_mat_aug = numpy.c_[ones_vec, x_mat]
@@ -491,8 +475,8 @@ def main():
                                                             # num_train_ex),
                              # avextol=1e-10, epsilon=1e-10, maxiter=400,
                              # full_output=1)
-    # lamb = 10000
-    lamb = 140
+    lamb = 0.3
+    # lamb = 1
     f_min_ncg_out = fmin_ncg(compute_cost_reg, theta_vec_flat,
                              fprime=compute_gradient_reg, args=(x_mat_aug,
                                                                 y_vec,
@@ -503,20 +487,26 @@ def main():
     theta_opt = numpy.reshape(f_min_ncg_out[0], (num_features+1, 1), order='F')
     print("theta:")
     print("%s\n" % numpy.array_str(numpy.round(theta_opt, 6)))
-    return_code = plot_decision_boundary(x_mat, label_vec, theta_opt)
-    pyplot.legend(('Decision Boundary', 'Team B Wins', 'Team A Wins'),
-                  loc='lower right')
-    pyplot.show()
+
+    # Plot point differential and seed difference between teams A and B
+    # return_code = plot_decision_boundary(x_mat, label_vec, theta_opt)
+    # pyplot.legend(('Decision Boundary', 'Team B Wins', 'Team A Wins'),
+    #               loc='lower right')
+    # pyplot.show()
 
     # Compute predictions
-    seed_diff_curr_season = seed_diff_mat_list['curr_season_mat']
+    elo_diff_curr_season = elo_diff_mat_list['curr_season_mat']
     point_diff_curr_season = point_diff_mat_list['curr_season_mat']
     t_point_diff_curr_season = point_diff_mat_list['curr_season_t_mat']
+    # seed_diff_curr_season = seed_diff_mat_list['curr_season_mat']
     pick_diff_curr_mat = point_diff_curr_season
     # pick_diff_curr_mat = t_point_diff_curr_season
-    test_feature_1_scale = feature_normalize(pick_diff_curr_mat[:, pick_col-1])
-    test_feature_2_scale = feature_normalize(seed_diff_curr_season[:, 3])
-    test_mat = numpy.c_[test_feature_1_scale, test_feature_2_scale]
+    test_feature_elo_scale = feature_normalize(elo_diff_curr_season[:, 3])
+    test_feature_pick_scale = feature_normalize(pick_diff_curr_mat[:, pick_col-1])
+    # test_feature_seed_scale = feature_normalize(seed_diff_curr_season[:, 3])
+    test_mat = numpy.c_[test_feature_elo_scale, test_feature_pick_scale]
+    # test_mat = numpy.c_[test_feature_elo_scale, test_feature_seed_scale]
+    # test_mat = numpy.reshape(test_feature_elo, (test_feature_elo.shape[0], 1))
     ones_test_vec = numpy.ones((test_mat.shape[0], 1))
     x_test_mat = test_mat
     x_test_mat_aug = numpy.c_[ones_test_vec, x_test_mat]
@@ -530,6 +520,7 @@ def main():
 
     # Generate raw submission file
     # file_name = "sample_submission.csv"
+    file_name = "test_submission.csv"
     gen_raw_submission(file_name, pred_mat)
 
     # Load raw submission file
