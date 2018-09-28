@@ -333,55 +333,76 @@ def parse_raw_submission(raw_submission):
     return parsed_submission
 
 
-def evaluate_submission(results, submission):
+def evaluate_submission(results, submission, season_ids):
     """ Computes predicted binomial deviance between results and submission.
     Args:
       results: Matrix of tournament results, where each row represents a game;
                third and fifth columns include IDs of winning and losing teams,
                respectively.
       submission: Matrix of submissions, where each row represents a game; first
-                  column includes IDs of two teams and second column includes
+                  two columns include IDs of two teams and third column includes
                   probability that first team wins.
+      season_ids: Array of integers denoting IDs of seasons for submission
     Returns:
       log_loss: Predicted binomial deviance.
     """
     bound_extreme = 0.0000000000000020278
-    winners = results[:, 2]
-    losers = results[:, 4]
-    submission_team1 = submission[:, 0].flatten()
-    submission_team2 = submission[:, 1].flatten()
+    str_seasons = results[1:, 0]
+    seasons = numpy.zeros((str_seasons.shape[0], 1))
+    for season_index in range(0, str_seasons.shape[0]):
+        seasons[season_index] = ord(str_seasons[season_index])
+    winners = results[1:, 2].astype(int)
+    losers = results[1:, 4].astype(int)
+    submission_team1 = submission[:, 0].astype(float)
+    submission_team2 = submission[:, 1].astype(float)
+    submission_prob = submission[:, 2].astype(float)
     num_games = results.shape[0]-1
     log_loss_array = numpy.zeros((num_games, 1))
-    for game_index in range(1, (num_games+1)):
-        curr_winner = winners[game_index]
-        curr_loser = losers[game_index]
+    num_seasons = len(season_ids)
+    num_submissions = submission.shape[0]
+    num_subs_per_season = num_submissions/num_seasons
+    curr_game_index = 0
+    for season_index in range(0, num_seasons):
+        curr_season = season_ids[season_index]
+        start_index = season_index*num_subs_per_season
+        end_index = (season_index+1)*num_subs_per_season
+        curr_sub_team1 = submission_team1[start_index:end_index]
+        curr_sub_team2 = submission_team2[start_index:end_index]
+        curr_sub_prob = submission_prob[start_index:end_index]
+        season_game_index = numpy.where(seasons == curr_season)
+        curr_winners = winners[season_game_index[0]]
+        curr_losers = losers[season_game_index[0]]
+        curr_num_games = curr_winners.shape[0]
+        for game_index in range(0, curr_num_games):
+            curr_winner = curr_winners[game_index]
+            curr_loser = curr_losers[game_index]
 
-        # Find game involving this winner and loser in submission
-        if (curr_winner < curr_loser):
-            curr_outcome = 1
-            winner_index = numpy.where(submission_team1.astype(float) ==
-                                       curr_winner)
-            loser_index = numpy.where(submission_team2.astype(float) ==
-                                      curr_loser)
-        else:
-            curr_outcome = 0
-            loser_index = numpy.where(submission_team1.astype(float) ==
-                                      curr_loser)
-            winner_index = numpy.where(submission_team2.astype(float) ==
-                                       curr_winner)
-        submission_index = numpy.intersect1d(winner_index[0], loser_index[0])
-        curr_prob = submission[submission_index, 2].astype(float)
+            # Find game involving this winner and loser in submission
+            if (curr_winner < curr_loser):
+                curr_outcome = 1
+                winner_index = numpy.where(curr_sub_team1 == curr_winner)
+                loser_index = numpy.where(curr_sub_team2 == curr_loser)
+            else:
+                curr_outcome = 0
+                loser_index = numpy.where(curr_sub_team1 == curr_loser)
+                winner_index = numpy.where(curr_sub_team2 == curr_winner)
+            submission_index = numpy.intersect1d(winner_index[0],
+                                                 loser_index[0])
+            curr_prob = curr_sub_prob[submission_index].astype(float)
 
-        # Bound prediction from extremes if necessary
-        if (curr_prob == 1):
-            curr_prob = 1-bound_extreme
-        elif (curr_prob == 0):
-            curr_prob = bound_extreme
+            # Bound prediction from extremes if necessary
+            if (curr_prob == 1):
+                curr_prob = 1-bound_extreme
+            elif (curr_prob == 0):
+                curr_prob = bound_extreme
 
-        # Evaluate per-game log loss
-        log_loss_term1 = curr_outcome*math.log(curr_prob)
-        log_loss_term2 = (1-curr_outcome)*math.log(1-curr_prob)
-        log_loss_array[game_index-1] = log_loss_term1+log_loss_term2
+            # Evaluate per-game log loss
+            log_loss_term1 = curr_outcome*math.log(curr_prob)
+            log_loss_term2 = (1-curr_outcome)*math.log(1-curr_prob)
+            log_loss_array[curr_game_index] = log_loss_term1+log_loss_term2
+            curr_game_index = curr_game_index+1
+        curr_log_loss = (-1/curr_game_index)*numpy.sum(log_loss_array)
+        # print("curr_log_loss = %f" % curr_log_loss)
 
     # Compute log loss
     log_loss = (-1/num_games)*numpy.sum(log_loss_array)
@@ -397,67 +418,70 @@ def main():
     print("Loading regular season results.")
     regular_season_results = numpy.genfromtxt("regular_season_results.csv",
                                               dtype=object, delimiter=",")
-    print("Loading previous tournament results.")
-    prev_tourney_results = numpy.genfromtxt("tourney_results.csv",
+    print("Loading train tournament results.")
+    train_tourney_results = numpy.genfromtxt("tourney_results_train.csv",
+                                             dtype=object, delimiter=",")
+    print("Loading test tournament results.")
+    test_tourney_results = numpy.genfromtxt("tourney_results_test.csv",
                                             dtype=object, delimiter=",")
     print("Loading current tournament results.")
-    tournament_results = numpy.genfromtxt("tourney_results_2014.csv",
-                                          delimiter=",")
+    curr_tourney_results = numpy.genfromtxt("tourney_results_2014.csv",
+                                            dtype=object, delimiter=",")
     print("Loading tournament seeds.")
     tournament_seeds = numpy.genfromtxt("tourney_seeds.csv", dtype=str,
                                         delimiter=",")
 
     # Generate training results
-    training_mat = gen_train_results(prev_tourney_results)
+    training_mat = gen_train_results(train_tourney_results)
 
     # Logistic regression algorithm
     curr_const = 0.001
-    current_season_id = 83
+    test_season_ids = [67, 72, 77, 82]
+    num_test_seasons = len(test_season_ids)
+    curr_season_id = 83
 
     # Compute Elo differential between teams A and B for each season
-    # file_name = "elo_differential.csv"
     elo_diff_mat_list = gen_elo_differential(regular_season_results, team_ids,
-                                             training_mat, current_season_id)
+                                             training_mat, test_season_ids,
+                                             curr_season_id)
     elo_diff_mat = elo_diff_mat_list['elo_diff_mat']
-    elo_idx = numpy.where(elo_diff_mat[:, 0] != current_season_id)
-    elo_idx = numpy.intersect1d(elo_idx[0], elo_idx[0])
+    elo_idx1 = numpy.where(elo_diff_mat[:, 4] != curr_const)
+    elo_idx = elo_idx1[0]
 
     # Compute point differential between teams A and B for each season
-    # file_name = "point_differential.csv"
     point_diff_mat_list = gen_point_differential(regular_season_results,
                                                  team_ids, training_mat,
-                                                 current_season_id,
-                                                 curr_const, tournament_seeds)
+                                                 test_season_ids,
+                                                 curr_season_id, curr_const)
     point_diff_mat = point_diff_mat_list['point_diff_mat']
-    t_point_diff_mat = point_diff_mat_list['tourney_point_diff_mat']
-    pick_diff_mat = point_diff_mat
-    # pick_diff_mat = t_point_diff_mat
-    pick_col = 4
-    # pick_col = 5
-    pick_idx1 = numpy.where(pick_diff_mat[:, 0] != current_season_id)
-    pick_idx2 = numpy.where(pick_diff_mat[:, pick_col] != curr_const)
-    pick_idx = numpy.intersect1d(pick_idx1[0], pick_idx2[0])
+    point_idx1 = numpy.where(point_diff_mat[:, 4] != curr_const)
+    point_idx = point_idx1[0]
 
     # Compute seed difference between teams A and B for each season (where teams
     # A and B are both in that season's tournament)
-    # file_name = "seed_difference.csv"
-    # seed_diff_mat_list = gen_seed_difference(tournament_seeds, team_ids,
-    #                                          training_mat, current_season_id,
-    #                                          curr_const)
-    # seed_diff_mat = seed_diff_mat_list['seed_diff_mat']
-    # seed_idx1 = numpy.where(seed_diff_mat[:, 0] != current_season_id)
-    # seed_idx2 = numpy.where(seed_diff_mat[:, 4] != curr_const)
-    # seed_idx = numpy.intersect1d(seed_idx1[0], seed_idx2[0])
+    seed_diff_mat_list = gen_seed_difference(tournament_seeds, team_ids,
+                                             training_mat, test_season_ids,
+                                             curr_season_id, curr_const)
+    seed_diff_mat = seed_diff_mat_list['seed_diff_mat']
+    seed_idx1 = numpy.where(seed_diff_mat[:, 4] != curr_const)
+    seed_idx = seed_idx1[0]
 
     # Set training features and labels
-    focus_idx = numpy.intersect1d(elo_idx, pick_idx)
-    # focus_idx = numpy.intersect1d(elo_idx, seed_idx)
+    # focus_idx = elo_idx
+    focus_idx = point_idx
+    # focus_idx = seed_idx
     feature_elo_scale = feature_normalize(elo_diff_mat[focus_idx, 4])
-    feature_pick_scale = feature_normalize(pick_diff_mat[focus_idx, pick_col])
-    # feature_seed_scale = feature_normalize(seed_diff_mat[focus_idx, 4])
-    x_mat = numpy.c_[feature_elo_scale, feature_pick_scale]
+    feature_point_scale = feature_normalize(point_diff_mat[focus_idx, 4])
+    feature_seed_scale = feature_normalize(seed_diff_mat[focus_idx, 4])
+    x_mat = numpy.c_[feature_elo_scale, feature_point_scale]
     # x_mat = numpy.c_[feature_elo_scale, feature_seed_scale]
+    # x_mat = numpy.c_[feature_point_scale, feature_seed_scale]
+    # x_mat = numpy.c_[feature_elo_scale, feature_point_scale, feature_seed_scale]
     # x_mat = numpy.reshape(feature_elo_scale, (feature_elo_scale.shape[0], 1))
+    # x_mat = numpy.reshape(feature_point_scale,
+    #                       (feature_point_scale.shape[0], 1))
+    # x_mat = numpy.reshape(feature_seed_scale,
+    #                       (feature_seed_scale.shape[0], 1))
     label_vec = elo_diff_mat[focus_idx, 3]
 
     # Run nonconjugate gradient algorithm
@@ -475,8 +499,8 @@ def main():
                                                             # num_train_ex),
                              # avextol=1e-10, epsilon=1e-10, maxiter=400,
                              # full_output=1)
-    lamb = 0.3
-    # lamb = 1
+    # lamb = 0.3
+    lamb = 1
     f_min_ncg_out = fmin_ncg(compute_cost_reg, theta_vec_flat,
                              fprime=compute_gradient_reg, args=(x_mat_aug,
                                                                 y_vec,
@@ -494,45 +518,92 @@ def main():
     #               loc='lower right')
     # pyplot.show()
 
-    # Compute predictions
-    elo_diff_curr_season = elo_diff_mat_list['curr_season_mat']
-    point_diff_curr_season = point_diff_mat_list['curr_season_mat']
-    t_point_diff_curr_season = point_diff_mat_list['curr_season_t_mat']
-    # seed_diff_curr_season = seed_diff_mat_list['curr_season_mat']
-    pick_diff_curr_mat = point_diff_curr_season
-    # pick_diff_curr_mat = t_point_diff_curr_season
-    test_feature_elo_scale = feature_normalize(elo_diff_curr_season[:, 3])
-    test_feature_pick_scale = feature_normalize(pick_diff_curr_mat[:, pick_col-1])
-    # test_feature_seed_scale = feature_normalize(seed_diff_curr_season[:, 3])
-    test_mat = numpy.c_[test_feature_elo_scale, test_feature_pick_scale]
+    # Compute predictions on test data
+    elo_diff_test_season = elo_diff_mat_list['test_season_mat']
+    point_diff_test_season = point_diff_mat_list['test_season_mat']
+    seed_diff_test_season = seed_diff_mat_list['test_season_mat']
+    test_feature_elo_scale = feature_normalize(elo_diff_test_season[:, 3])
+    test_feature_point_scale = feature_normalize(point_diff_test_season[:, 3])
+    test_feature_seed_scale = feature_normalize(seed_diff_test_season[:, 3])
+    test_mat = numpy.c_[test_feature_elo_scale, test_feature_point_scale]
     # test_mat = numpy.c_[test_feature_elo_scale, test_feature_seed_scale]
-    # test_mat = numpy.reshape(test_feature_elo, (test_feature_elo.shape[0], 1))
+    # test_mat = numpy.c_[test_feature_point_scale, test_feature_seed_scale]
+    # test_mat = numpy.c_[test_feature_elo_scale, test_feature_point_scale,
+    #                     test_feature_seed_scale]
+    # test_mat = numpy.reshape(test_feature_elo_scale,
+    #                          (test_feature_elo_scale.shape[0], 1))
+    # test_mat = numpy.reshape(test_feature_point_scale,
+    #                          (test_feature_point_scale.shape[0], 1))
+    # test_mat = numpy.reshape(test_feature_seed_scale,
+    #                          (test_feature_seed_scale.shape[0], 1))
     ones_test_vec = numpy.ones((test_mat.shape[0], 1))
     x_test_mat = test_mat
     x_test_mat_aug = numpy.c_[ones_test_vec, x_test_mat]
     winning_prob = compute_sigmoid(numpy.dot(x_test_mat_aug, theta_opt))
-    init_pred_mat = coin_flip(team_ids)
-    pred_mat = numpy.c_[init_pred_mat[:, 0:2], winning_prob]
+    init_pred_mat = elo_diff_test_season[:, 1:4]
+    test_pred_mat = numpy.c_[init_pred_mat[:, 0:2], winning_prob]
 
     # Coin-flip algorithm
-    # file_name = "coin_flips.csv"
     # pred_mat = coin_flip(team_ids)
 
     # Generate raw submission file
-    # file_name = "sample_submission.csv"
-    file_name = "test_submission.csv"
-    gen_raw_submission(file_name, pred_mat)
+    test_file_name = "test_submission.csv"
+    gen_raw_submission(test_file_name, test_pred_mat)
 
     # Load raw submission file
-    print("Loading submission file.")
-    raw_submission = numpy.genfromtxt(file_name, dtype=None, delimiter=",")
+    print("Loading test submission file.")
+    test_raw_submission = numpy.genfromtxt(test_file_name, dtype=None,
+                                           delimiter=",")
 
     # Parse raw submission file
-    submission = parse_raw_submission(raw_submission)
+    test_submission = parse_raw_submission(test_raw_submission)
 
     # Compute evaluation function of submission
-    log_loss = evaluate_submission(tournament_results,submission)
-    print("Predicted binomial deviance:  %.5f" % log_loss)
+    test_log_loss = evaluate_submission(test_tourney_results, test_submission,
+                                        test_season_ids)
+    print("Test binomial deviance:  %.5f" % test_log_loss)
+
+    # Compute predictions on current data
+    elo_diff_curr_season = elo_diff_mat_list['curr_season_mat']
+    point_diff_curr_season = point_diff_mat_list['curr_season_mat']
+    seed_diff_curr_season = seed_diff_mat_list['curr_season_mat']
+    curr_feature_elo_scale = feature_normalize(elo_diff_curr_season[:, 3])
+    curr_feature_point_scale = feature_normalize(point_diff_curr_season[:, 3])
+    curr_feature_seed_scale = feature_normalize(seed_diff_curr_season[:, 3])
+    curr_mat = numpy.c_[curr_feature_elo_scale, curr_feature_point_scale]
+    # curr_mat = numpy.c_[curr_feature_elo_scale, curr_feature_seed_scale]
+    # curr_mat = numpy.c_[curr_feature_point_scale, curr_feature_seed_scale]
+    # curr_mat = numpy.c_[curr_feature_elo_scale, curr_feature_point_scale,
+    #                     curr_feature_seed_scale]
+    # curr_mat = numpy.reshape(curr_feature_elo_scale,
+    #                          (curr_feature_elo_scale.shape[0], 1))
+    # curr_mat = numpy.reshape(curr_feature_point_scale,
+    #                          (curr_feature_point_scale.shape[0], 1))
+    # curr_mat = numpy.reshape(curr_feature_seed_scale,
+    #                          (curr_feature_seed_scale.shape[0], 1))
+    ones_curr_vec = numpy.ones((curr_mat.shape[0], 1))
+    x_curr_mat = curr_mat
+    x_curr_mat_aug = numpy.c_[ones_curr_vec, x_curr_mat]
+    winning_prob = compute_sigmoid(numpy.dot(x_curr_mat_aug, theta_opt))
+    init_pred_mat = coin_flip(team_ids)
+    curr_pred_mat = numpy.c_[init_pred_mat[:, 0:2], winning_prob]
+
+    # Generate raw submission file
+    curr_file_name = "curr_submission.csv"
+    gen_raw_submission(curr_file_name, curr_pred_mat)
+
+    # Load raw submission file
+    print("Loading curr submission file.")
+    curr_raw_submission = numpy.genfromtxt(curr_file_name, dtype=None,
+                                           delimiter=",")
+
+    # Parse raw submission file
+    curr_submission = parse_raw_submission(curr_raw_submission)
+
+    # Compute evaluation function of submission
+    curr_log_loss = evaluate_submission(curr_tourney_results, curr_submission,
+                                        [curr_season_id])
+    print("Current binomial deviance:  %.5f" % curr_log_loss)
 
 # Call main function
 if __name__ == "__main__":
