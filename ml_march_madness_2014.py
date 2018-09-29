@@ -19,6 +19,7 @@ from matplotlib import pyplot
 from scipy.optimize import fmin_ncg
 from gen_elo_differential import gen_elo_differential
 from gen_point_differential import gen_point_differential
+from gen_rpi_differential import gen_rpi_differential
 from gen_seed_difference import gen_seed_difference
 import numpy
 import itertools
@@ -457,6 +458,15 @@ def main():
     point_idx1 = numpy.where(point_diff_mat[:, 4] != curr_const)
     point_idx = point_idx1[0]
 
+    # Compute RPI differential between teams A and B for each season
+    rpi_diff_mat_list = gen_rpi_differential(regular_season_results,
+                                             team_ids, training_mat,
+                                             test_season_ids,
+                                             curr_season_id, curr_const)
+    rpi_diff_mat = rpi_diff_mat_list['rpi_diff_mat']
+    rpi_idx1 = numpy.where(rpi_diff_mat[:, 4] != curr_const)
+    rpi_idx = rpi_idx1[0]
+
     # Compute seed difference between teams A and B for each season (where teams
     # A and B are both in that season's tournament)
     seed_diff_mat_list = gen_seed_difference(tournament_seeds, team_ids,
@@ -468,18 +478,23 @@ def main():
 
     # Set training features and labels
     # focus_idx = elo_idx
-    focus_idx = point_idx
+    # focus_idx = point_idx
+    focus_idx = rpi_idx
     # focus_idx = seed_idx
     feature_elo_scale = feature_normalize(elo_diff_mat[focus_idx, 4])
     feature_point_scale = feature_normalize(point_diff_mat[focus_idx, 4])
+    feature_rpi_scale = feature_normalize(rpi_diff_mat[focus_idx, 4])
     feature_seed_scale = feature_normalize(seed_diff_mat[focus_idx, 4])
-    x_mat = numpy.c_[feature_elo_scale, feature_point_scale]
+    # x_mat = numpy.c_[feature_elo_scale, feature_point_scale]
+    x_mat = numpy.c_[feature_elo_scale, feature_rpi_scale]
     # x_mat = numpy.c_[feature_elo_scale, feature_seed_scale]
     # x_mat = numpy.c_[feature_point_scale, feature_seed_scale]
     # x_mat = numpy.c_[feature_elo_scale, feature_point_scale, feature_seed_scale]
     # x_mat = numpy.reshape(feature_elo_scale, (feature_elo_scale.shape[0], 1))
     # x_mat = numpy.reshape(feature_point_scale,
     #                       (feature_point_scale.shape[0], 1))
+    # x_mat = numpy.reshape(feature_rpi_scale,
+    #                       (feature_rpi_scale.shape[0], 1))
     # x_mat = numpy.reshape(feature_seed_scale,
     #                       (feature_seed_scale.shape[0], 1))
     label_vec = elo_diff_mat[focus_idx, 3]
@@ -521,11 +536,14 @@ def main():
     # Compute predictions on test data
     elo_diff_test_season = elo_diff_mat_list['test_season_mat']
     point_diff_test_season = point_diff_mat_list['test_season_mat']
+    rpi_diff_test_season = rpi_diff_mat_list['test_season_mat']
     seed_diff_test_season = seed_diff_mat_list['test_season_mat']
     test_feature_elo_scale = feature_normalize(elo_diff_test_season[:, 3])
     test_feature_point_scale = feature_normalize(point_diff_test_season[:, 3])
+    test_feature_rpi_scale = feature_normalize(rpi_diff_test_season[:, 3])
     test_feature_seed_scale = feature_normalize(seed_diff_test_season[:, 3])
-    test_mat = numpy.c_[test_feature_elo_scale, test_feature_point_scale]
+    # test_mat = numpy.c_[test_feature_elo_scale, test_feature_point_scale]
+    test_mat = numpy.c_[test_feature_elo_scale, test_feature_rpi_scale]
     # test_mat = numpy.c_[test_feature_elo_scale, test_feature_seed_scale]
     # test_mat = numpy.c_[test_feature_point_scale, test_feature_seed_scale]
     # test_mat = numpy.c_[test_feature_elo_scale, test_feature_point_scale,
@@ -534,6 +552,8 @@ def main():
     #                          (test_feature_elo_scale.shape[0], 1))
     # test_mat = numpy.reshape(test_feature_point_scale,
     #                          (test_feature_point_scale.shape[0], 1))
+    # test_mat = numpy.reshape(test_feature_rpi_scale,
+    #                          (test_feature_rpi_scale.shape[0], 1))
     # test_mat = numpy.reshape(test_feature_seed_scale,
     #                          (test_feature_seed_scale.shape[0], 1))
     ones_test_vec = numpy.ones((test_mat.shape[0], 1))
@@ -566,11 +586,14 @@ def main():
     # Compute predictions on current data
     elo_diff_curr_season = elo_diff_mat_list['curr_season_mat']
     point_diff_curr_season = point_diff_mat_list['curr_season_mat']
+    rpi_diff_curr_season = rpi_diff_mat_list['curr_season_mat']
     seed_diff_curr_season = seed_diff_mat_list['curr_season_mat']
     curr_feature_elo_scale = feature_normalize(elo_diff_curr_season[:, 3])
     curr_feature_point_scale = feature_normalize(point_diff_curr_season[:, 3])
+    curr_feature_rpi_scale = feature_normalize(rpi_diff_curr_season[:, 3])
     curr_feature_seed_scale = feature_normalize(seed_diff_curr_season[:, 3])
-    curr_mat = numpy.c_[curr_feature_elo_scale, curr_feature_point_scale]
+    # curr_mat = numpy.c_[curr_feature_elo_scale, curr_feature_point_scale]
+    curr_mat = numpy.c_[curr_feature_elo_scale, curr_feature_rpi_scale]
     # curr_mat = numpy.c_[curr_feature_elo_scale, curr_feature_seed_scale]
     # curr_mat = numpy.c_[curr_feature_point_scale, curr_feature_seed_scale]
     # curr_mat = numpy.c_[curr_feature_elo_scale, curr_feature_point_scale,
@@ -579,6 +602,8 @@ def main():
     #                          (curr_feature_elo_scale.shape[0], 1))
     # curr_mat = numpy.reshape(curr_feature_point_scale,
     #                          (curr_feature_point_scale.shape[0], 1))
+    # curr_mat = numpy.reshape(curr_feature_rpi_scale,
+    #                          (curr_feature_rpi_scale.shape[0], 1))
     # curr_mat = numpy.reshape(curr_feature_seed_scale,
     #                          (curr_feature_seed_scale.shape[0], 1))
     ones_curr_vec = numpy.ones((curr_mat.shape[0], 1))
