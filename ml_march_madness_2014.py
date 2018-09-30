@@ -442,76 +442,109 @@ def main():
     num_test_seasons = len(test_season_ids)
     curr_season_id = 83
 
-    # Compute Elo differential between teams A and B for each season
-    elo_diff_mat_list = gen_elo_differential(regular_season_results, team_ids,
-                                             training_mat, test_season_ids,
-                                             curr_season_id)
-    elo_diff_mat = elo_diff_mat_list['elo_diff_mat']
-    elo_idx1 = numpy.where(elo_diff_mat[:, 4] != curr_const)
-    elo_idx = elo_idx1[0]
-
-    # Compute point differential between teams A and B for each season
-    point_diff_mat_list = gen_point_differential(regular_season_results,
-                                                 team_ids, training_mat,
-                                                 test_season_ids,
-                                                 curr_season_id, curr_const)
-    point_diff_mat = point_diff_mat_list['point_diff_mat']
-    point_idx1 = numpy.where(point_diff_mat[:, 4] != curr_const)
-    point_idx = point_idx1[0]
-
-    # Compute RPI differential between teams A and B for each season
-    # rpi_diff_mat_list = gen_rpi_differential(regular_season_results,
-    #                                          team_ids, training_mat,
-    #                                          test_season_ids,
-    #                                          curr_season_id, curr_const)
-    # rpi_diff_mat = rpi_diff_mat_list['rpi_diff_mat']
-    # rpi_idx1 = numpy.where(rpi_diff_mat[:, 4] != curr_const)
-    # rpi_idx = rpi_idx1[0]
-
-    # Compute seed difference between teams A and B for each season (where teams
-    # A and B are both in that season's tournament)
-    seed_diff_mat_list = gen_seed_difference(tournament_seeds, team_ids,
-                                             training_mat, test_season_ids,
-                                             curr_season_id, curr_const)
-    seed_diff_mat = seed_diff_mat_list['seed_diff_mat']
-    seed_idx1 = numpy.where(seed_diff_mat[:, 4] != curr_const)
-    seed_idx = seed_idx1[0]
-
     # Compute SRS differential between teams A and B for each season
     srs_diff_mat_list = gen_srs_differential(regular_season_results,
                                              team_ids, training_mat,
                                              test_season_ids,
                                              curr_season_id, curr_const)
     srs_diff_mat = srs_diff_mat_list['srs_diff_mat']
-    srs_idx1 = numpy.where(srs_diff_mat[:, 4] != curr_const)
-    srs_idx = srs_idx1[0]
 
     # Set training features and labels
-    # focus_idx = elo_idx
-    # focus_idx = point_idx
-    # focus_idx = rpi_idx
-    # focus_idx = seed_idx
-    focus_idx = srs_idx
-    feature_elo_scale = feature_normalize(elo_diff_mat[focus_idx, 4])
-    feature_point_scale = feature_normalize(point_diff_mat[focus_idx, 4])
-    # feature_rpi_scale = feature_normalize(rpi_diff_mat[focus_idx, 4])
-    feature_seed_scale = feature_normalize(seed_diff_mat[focus_idx, 4])
-    feature_srs_scale = feature_normalize(srs_diff_mat[focus_idx, 4])
-    # x_mat = numpy.c_[feature_elo_scale, feature_point_scale]
-    # x_mat = numpy.c_[feature_elo_scale, feature_rpi_scale]
-    # x_mat = numpy.c_[feature_elo_scale, feature_seed_scale]
-    # x_mat = numpy.c_[feature_point_scale, feature_seed_scale]
-    # x_mat = numpy.c_[feature_elo_scale, feature_point_scale, feature_seed_scale]
-    # x_mat = numpy.reshape(feature_elo_scale, (feature_elo_scale.shape[0], 1))
-    # x_mat = numpy.reshape(feature_point_scale,
-    #                       (feature_point_scale.shape[0], 1))
-    # x_mat = numpy.reshape(feature_rpi_scale,
-    #                       (feature_rpi_scale.shape[0], 1))
-    # x_mat = numpy.reshape(feature_seed_scale,
-    #                       (feature_seed_scale.shape[0], 1))
-    x_mat = numpy.reshape(feature_srs_scale,
-                          (feature_srs_scale.shape[0], 1))
-    label_vec = elo_diff_mat[focus_idx, 3]
+    srs_idx1 = numpy.where(srs_diff_mat[:, 4] != curr_const)
+    srs_idx = srs_idx1[0]
+    feature_srs_scale = feature_normalize(srs_diff_mat[srs_idx, 4])
+    x_mat = numpy.reshape(feature_srs_scale, (feature_srs_scale.shape[0], 1))
+    label_vec = srs_diff_mat[srs_idx, 3]
+
+    # Set testing features and labels
+    srs_diff_test_season = srs_diff_mat_list['test_season_mat']
+    test_feature_srs_scale = feature_normalize(srs_diff_test_season[:, 3])
+    x_test_mat = numpy.reshape(test_feature_srs_scale,
+                               (test_feature_srs_scale.shape[0], 1))
+    srs_diff_curr_season = srs_diff_mat_list['curr_season_mat']
+    curr_feature_srs_scale = feature_normalize(srs_diff_curr_season[:, 3])
+    x_curr_mat = numpy.reshape(curr_feature_srs_scale,
+                               (curr_feature_srs_scale.shape[0], 1))
+
+    # Flags that determine which additional feature(s) are used here
+    elo_diff_flag = 1
+    point_diff_flag = 0
+    rpi_diff_flag = 0
+    seed_diff_flag = 0
+
+    # Compute Elo differential between teams A and B for each season
+    if (elo_diff_flag == 1):
+        elo_diff_mat_list = gen_elo_differential(regular_season_results,
+                                                 team_ids, training_mat,
+                                                 test_season_ids,
+                                                 curr_season_id)
+        elo_diff_mat = elo_diff_mat_list['elo_diff_mat']
+        elo_idx1 = numpy.where(elo_diff_mat[:, 4] != curr_const)
+        elo_idx = elo_idx1[0]
+        feature_elo_scale = feature_normalize(elo_diff_mat[elo_idx, 4])
+        x_mat = numpy.c_[x_mat, feature_elo_scale]
+        elo_diff_test_season = elo_diff_mat_list['test_season_mat']
+        test_feature_elo_scale = feature_normalize(elo_diff_test_season[:, 3])
+        x_test_mat = numpy.c_[x_test_mat, test_feature_elo_scale]
+        elo_diff_curr_season = elo_diff_mat_list['curr_season_mat']
+        curr_feature_elo_scale = feature_normalize(elo_diff_curr_season[:, 3])
+        x_curr_mat = numpy.c_[x_curr_mat, curr_feature_elo_scale]
+
+    # Compute point differential between teams A and B for each season
+    if (point_diff_flag == 1):
+        point_diff_mat_list = gen_point_differential(regular_season_results,
+                                                     team_ids, training_mat,
+                                                     test_season_ids,
+                                                     curr_season_id, curr_const)
+        point_diff_mat = point_diff_mat_list['point_diff_mat']
+        point_idx1 = numpy.where(point_diff_mat[:, 4] != curr_const)
+        point_idx = point_idx1[0]
+        feature_point_scale = feature_normalize(point_diff_mat[point_idx, 4])
+        x_mat = numpy.c_[x_mat, feature_point_scale]
+        point_diff_test_season = point_diff_mat_list['test_season_mat']
+        test_feature_point_scale = feature_normalize(point_diff_test_season[:,
+                                                                            3])
+        x_test_mat = numpy.c_[x_test_mat, test_feature_point_scale]
+        point_diff_curr_season = point_diff_mat_list['curr_season_mat']
+        curr_feature_point_scale = feature_normalize(point_diff_curr_season[:,
+                                                                            3])
+        x_curr_mat = numpy.c_[x_curr_mat, curr_feature_point_scale]
+
+    # Compute RPI differential between teams A and B for each season
+    if (rpi_diff_flag == 1):
+        rpi_diff_mat_list = gen_rpi_differential(regular_season_results,
+                                                 team_ids, training_mat,
+                                                 test_season_ids,
+                                                 curr_season_id, curr_const)
+        rpi_diff_mat = rpi_diff_mat_list['rpi_diff_mat']
+        rpi_idx1 = numpy.where(rpi_diff_mat[:, 4] != curr_const)
+        rpi_idx = rpi_idx1[0]
+        feature_rpi_scale = feature_normalize(rpi_diff_mat[rpi_idx, 4])
+        x_mat = numpy.c_[x_mat, feature_rpi_scale]
+        rpi_diff_test_season = rpi_diff_mat_list['test_season_mat']
+        test_feature_rpi_scale = feature_normalize(rpi_diff_test_season[:, 3])
+        x_test_mat = numpy.c_[x_test_mat, test_feature_rpi_scale]
+        rpi_diff_curr_season = rpi_diff_mat_list['curr_season_mat']
+        curr_feature_rpi_scale = feature_normalize(rpi_diff_curr_season[:, 3])
+        x_curr_mat = numpy.c_[x_curr_mat, curr_feature_rpi_scale]
+
+    # Compute seed difference between teams A and B for each season (where teams
+    # A and B are both in that season's tournament)
+    if (seed_diff_flag == 1):
+        seed_diff_mat_list = gen_seed_difference(tournament_seeds, team_ids,
+                                                 training_mat, test_season_ids,
+                                                 curr_season_id, curr_const)
+        seed_diff_mat = seed_diff_mat_list['seed_diff_mat']
+        seed_idx1 = numpy.where(seed_diff_mat[:, 4] != curr_const)
+        seed_idx = seed_idx1[0]
+        feature_seed_scale = feature_normalize(seed_diff_mat[focus_idx, 4])
+        x_mat = numpy.c_[x_mat, feature_seed_scale]
+        seed_diff_test_season = seed_diff_mat_list['test_season_mat']
+        test_feature_seed_scale = feature_normalize(seed_diff_test_season[:, 3])
+        x_test_mat = numpy.c_[x_test_mat, test_feature_seed_scale]
+        seed_diff_curr_season = seed_diff_mat_list['curr_season_mat']
+        curr_feature_seed_scale = feature_normalize(seed_diff_curr_season[:, 3])
+        x_curr_mat = numpy.c_[x_curr_mat, curr_feature_seed_scale]
 
     # Run nonconjugate gradient algorithm
     num_features = x_mat.shape[1]
@@ -548,37 +581,10 @@ def main():
     # pyplot.show()
 
     # Compute predictions on test data
-    elo_diff_test_season = elo_diff_mat_list['test_season_mat']
-    point_diff_test_season = point_diff_mat_list['test_season_mat']
-    # rpi_diff_test_season = rpi_diff_mat_list['test_season_mat']
-    seed_diff_test_season = seed_diff_mat_list['test_season_mat']
-    srs_diff_test_season = srs_diff_mat_list['test_season_mat']
-    test_feature_elo_scale = feature_normalize(elo_diff_test_season[:, 3])
-    test_feature_point_scale = feature_normalize(point_diff_test_season[:, 3])
-    # test_feature_rpi_scale = feature_normalize(rpi_diff_test_season[:, 3])
-    test_feature_seed_scale = feature_normalize(seed_diff_test_season[:, 3])
-    test_feature_srs_scale = feature_normalize(srs_diff_test_season[:, 3])
-    # test_mat = numpy.c_[test_feature_elo_scale, test_feature_point_scale]
-    # test_mat = numpy.c_[test_feature_elo_scale, test_feature_rpi_scale]
-    # test_mat = numpy.c_[test_feature_elo_scale, test_feature_seed_scale]
-    # test_mat = numpy.c_[test_feature_point_scale, test_feature_seed_scale]
-    # test_mat = numpy.c_[test_feature_elo_scale, test_feature_point_scale,
-    #                     test_feature_seed_scale]
-    # test_mat = numpy.reshape(test_feature_elo_scale,
-    #                          (test_feature_elo_scale.shape[0], 1))
-    # test_mat = numpy.reshape(test_feature_point_scale,
-    #                          (test_feature_point_scale.shape[0], 1))
-    # test_mat = numpy.reshape(test_feature_rpi_scale,
-    #                          (test_feature_rpi_scale.shape[0], 1))
-    # test_mat = numpy.reshape(test_feature_seed_scale,
-    #                          (test_feature_seed_scale.shape[0], 1))
-    test_mat = numpy.reshape(test_feature_srs_scale,
-                             (test_feature_srs_scale.shape[0], 1))
-    ones_test_vec = numpy.ones((test_mat.shape[0], 1))
-    x_test_mat = test_mat
+    ones_test_vec = numpy.ones((x_test_mat.shape[0], 1))
     x_test_mat_aug = numpy.c_[ones_test_vec, x_test_mat]
     winning_prob = compute_sigmoid(numpy.dot(x_test_mat_aug, theta_opt))
-    init_pred_mat = elo_diff_test_season[:, 1:4]
+    init_pred_mat = srs_diff_test_season[:, 1:4]
     test_pred_mat = numpy.c_[init_pred_mat[:, 0:2], winning_prob]
 
     # Coin-flip algorithm
@@ -602,34 +608,7 @@ def main():
     print("Test binomial deviance:  %.5f" % test_log_loss)
 
     # Compute predictions on current data
-    elo_diff_curr_season = elo_diff_mat_list['curr_season_mat']
-    point_diff_curr_season = point_diff_mat_list['curr_season_mat']
-    # rpi_diff_curr_season = rpi_diff_mat_list['curr_season_mat']
-    seed_diff_curr_season = seed_diff_mat_list['curr_season_mat']
-    srs_diff_curr_season = srs_diff_mat_list['curr_season_mat']
-    curr_feature_elo_scale = feature_normalize(elo_diff_curr_season[:, 3])
-    curr_feature_point_scale = feature_normalize(point_diff_curr_season[:, 3])
-    # curr_feature_rpi_scale = feature_normalize(rpi_diff_curr_season[:, 3])
-    curr_feature_seed_scale = feature_normalize(seed_diff_curr_season[:, 3])
-    curr_feature_srs_scale = feature_normalize(srs_diff_curr_season[:, 3])
-    # curr_mat = numpy.c_[curr_feature_elo_scale, curr_feature_point_scale]
-    # curr_mat = numpy.c_[curr_feature_elo_scale, curr_feature_rpi_scale]
-    # curr_mat = numpy.c_[curr_feature_elo_scale, curr_feature_seed_scale]
-    # curr_mat = numpy.c_[curr_feature_point_scale, curr_feature_seed_scale]
-    # curr_mat = numpy.c_[curr_feature_elo_scale, curr_feature_point_scale,
-    #                     curr_feature_seed_scale]
-    # curr_mat = numpy.reshape(curr_feature_elo_scale,
-    #                          (curr_feature_elo_scale.shape[0], 1))
-    # curr_mat = numpy.reshape(curr_feature_point_scale,
-    #                          (curr_feature_point_scale.shape[0], 1))
-    # curr_mat = numpy.reshape(curr_feature_rpi_scale,
-    #                          (curr_feature_rpi_scale.shape[0], 1))
-    # curr_mat = numpy.reshape(curr_feature_seed_scale,
-    #                          (curr_feature_seed_scale.shape[0], 1))
-    curr_mat = numpy.reshape(curr_feature_srs_scale,
-                             (curr_feature_srs_scale.shape[0], 1))
-    ones_curr_vec = numpy.ones((curr_mat.shape[0], 1))
-    x_curr_mat = curr_mat
+    ones_curr_vec = numpy.ones((x_curr_mat.shape[0], 1))
     x_curr_mat_aug = numpy.c_[ones_curr_vec, x_curr_mat]
     winning_prob = compute_sigmoid(numpy.dot(x_curr_mat_aug, theta_opt))
     init_pred_mat = coin_flip(team_ids)
