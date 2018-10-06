@@ -16,12 +16,13 @@
 # Machine Learning March Madness
 # Apply ML methods to predict outcome of 2014 NCAA Tournament
 from matplotlib import pyplot
-from scipy.optimize import fmin_ncg
 from gen_elo_differential import gen_elo_differential
 from gen_point_differential import gen_point_differential
 from gen_rpi_differential import gen_rpi_differential
 from gen_seed_difference import gen_seed_difference
 from gen_srs_differential import gen_srs_differential
+from logistic_regression import test_log_reg
+from logistic_regression import train_log_reg
 import numpy
 import itertools
 import math
@@ -88,135 +89,6 @@ def plot_decision_boundary(x, y, theta):
     pyplot.plot(x[:, 0], y_line_vals, 'b-', markersize=18)
     pyplot.hold(False)
     return None
-
-
-def compute_sigmoid(z):
-    """ Computes sigmoid function.
-    Args:
-      z: Can be a scalar, a vector or a matrix.
-    Returns:
-      sigmoid_z: Sigmoid function value.
-    """
-    sigmoid_z = 1/(1+numpy.exp(-z))
-    return sigmoid_z
-
-
-def compute_cost(theta, X, y, num_train_ex):
-    """ Computes cost function J(\theta).
-    Args:
-      theta: Vector of parameters for logistic regression.
-      X: Matrix of features.
-      y: Vector of labels.
-      num_train_ex: Number of training examples.
-    Returns:
-      j_theta: Logistic regression cost.
-    Raises:
-      An error occurs if the number of features is 0.
-      An error occurs if the number of training examples is 0.
-    """
-    if (num_train_ex == 0): raise Error('num_train_ex = 0')
-    num_features = X.shape[1]
-    if num_features == 0: raise Error('num_features = 0')
-    theta = numpy.reshape(theta, (num_features, 1), order='F')
-    h_theta = compute_sigmoid(numpy.dot(X, theta))
-    j_theta = (numpy.sum(numpy.subtract(numpy.multiply(-y, numpy.log(h_theta)),
-                                        numpy.multiply((1-y),
-                                                       numpy.log(1-h_theta))),
-                         axis=0))/num_train_ex
-    return j_theta
-
-
-def compute_cost_reg(theta, X, y, num_train_ex, lamb):
-    """ Computes regularized cost function J(\theta).
-    Args:
-      theta: Vector of parameters for regularized logistic regression.
-      X: Matrix of features.
-      y: Vector of labels.
-      num_train_ex: Number of training examples.
-      lamb: Regularization parameter.
-    Returns:
-      j_theta_reg: Regularized logistic regression cost.
-    Raises:
-      An error occurs if the number of features is 0.
-      An error occurs if the number of training examples is 0.
-    """
-    if (num_train_ex == 0): raise Error('num_train_ex = 0')
-    num_features = X.shape[1]
-    if num_features == 0: raise Error('num_features = 0')
-    theta = numpy.reshape(theta, (num_features, 1), order='F')
-    h_theta = compute_sigmoid(numpy.dot(X, theta))
-    theta_squared = numpy.power(theta, 2)
-    j_theta = (numpy.sum(numpy.subtract(numpy.multiply(-y, numpy.log(h_theta)),
-                                        numpy.multiply((1-y),
-                                                       numpy.log(1-h_theta))),
-                         axis=0))/num_train_ex
-    j_theta_reg = (
-        j_theta+(lamb/(2*num_train_ex))*numpy.sum(theta_squared,
-                                                  axis=0)-theta_squared[0])
-    return j_theta_reg
-
-
-def compute_gradient(theta, X, y, num_train_ex):
-    """ Computes gradient of cost function J(\theta).
-    Args:
-      theta: Vector of parameters for logistic regression.
-      X: Matrix of features.
-      y: Vector of labels.
-      num_train_ex: Number of training examples.
-    Returns:
-      grad_array_flat: Vector of logistic regression gradients
-                       (one per feature).
-    Raises:
-      An error occurs if the number of features is 0.
-      An error occurs if the number of training examples is 0.
-    """
-    if (num_train_ex == 0): raise Error('num_train_ex = 0')
-    num_features = X.shape[1]
-    if num_features == 0: raise Error('num_features = 0')
-    theta = numpy.reshape(theta, (num_features, 1), order='F')
-    h_theta = compute_sigmoid(numpy.dot(X, theta))
-    grad_array = numpy.zeros((num_features, 1))
-    for grad_index in range(0, num_features):
-        grad_term = numpy.multiply(numpy.reshape(X[:, grad_index],
-                                                 (num_train_ex, 1)),
-                                   numpy.subtract(h_theta, y))
-        grad_array[grad_index] = (numpy.sum(grad_term, axis=0))/num_train_ex
-    grad_array_flat = numpy.ndarray.flatten(grad_array)
-    return grad_array_flat
-
-
-def compute_gradient_reg(theta, X, y, num_train_ex, lamb):
-    """ Computes gradient of regularized cost function J(\theta).
-    Args:
-      theta: Vector of parameters for regularized logistic regression.
-      X: Matrix of features.
-      y: Vector of labels.
-      num_train_ex: Number of training examples.
-      lamb: Regularization parameter.
-    Returns:
-      grad_array_reg_flat: Vector of regularized logistic regression gradients
-                           (one per feature).
-    Raises:
-      An error occurs if the number of features is 0.
-      An error occurs if the number of training examples is 0.
-    """
-    if (num_train_ex == 0): raise Error('num_train_ex = 0')
-    num_features = X.shape[1]
-    if num_features == 0: raise Error('num_features = 0')
-    theta = numpy.reshape(theta, (num_features, 1), order='F')
-    h_theta = compute_sigmoid(numpy.dot(X, theta))
-    grad_array = numpy.zeros((num_features, 1))
-    grad_array_reg = numpy.zeros((num_features, 1))
-    for grad_index in range(0, num_features):
-        grad_term = numpy.multiply(numpy.reshape(X[:, grad_index],
-                                                 (num_train_ex, 1)),
-                                   numpy.subtract(h_theta, y))
-        grad_array[grad_index] = (numpy.sum(grad_term, axis=0))/num_train_ex
-        grad_array_reg[grad_index] = (
-            grad_array[grad_index]+(lamb/num_train_ex)*theta[grad_index])
-    grad_array_reg[0] = grad_array_reg[0]-(lamb/num_train_ex)*theta[0]
-    grad_array_reg_flat = numpy.ndarray.flatten(grad_array_reg)
-    return grad_array_reg_flat
 
 
 def gen_train_results(prev_tourney_results):
@@ -436,13 +308,14 @@ def main():
     # Generate training results
     training_mat = gen_train_results(train_tourney_results)
 
-    # Logistic regression algorithm
+    # Initialize parameters
     curr_const = 0.001
     test_season_ids = [67, 72, 77, 82]
     num_test_seasons = len(test_season_ids)
     curr_season_id = 83
 
     # Compute SRS differential between teams A and B for each season
+    print("Computing SRS differential...")
     srs_diff_mat_list = gen_srs_differential(regular_season_results,
                                              team_ids, training_mat,
                                              test_season_ids,
@@ -467,13 +340,14 @@ def main():
                                (curr_feature_srs_scale.shape[0], 1))
 
     # Flags that determine which additional feature(s) are used here
-    elo_diff_flag = 1
+    elo_diff_flag = 0
     point_diff_flag = 0
     rpi_diff_flag = 0
     seed_diff_flag = 0
 
     # Compute Elo differential between teams A and B for each season
     if (elo_diff_flag == 1):
+        print("Computing Elo differential...")
         elo_diff_mat_list = gen_elo_differential(regular_season_results,
                                                  team_ids, training_mat,
                                                  test_season_ids,
@@ -492,6 +366,7 @@ def main():
 
     # Compute point differential between teams A and B for each season
     if (point_diff_flag == 1):
+        print("Computing point differential...")
         point_diff_mat_list = gen_point_differential(regular_season_results,
                                                      team_ids, training_mat,
                                                      test_season_ids,
@@ -512,6 +387,7 @@ def main():
 
     # Compute RPI differential between teams A and B for each season
     if (rpi_diff_flag == 1):
+        print("Computing RPI differential...")
         rpi_diff_mat_list = gen_rpi_differential(regular_season_results,
                                                  team_ids, training_mat,
                                                  test_season_ids,
@@ -531,6 +407,7 @@ def main():
     # Compute seed difference between teams A and B for each season (where teams
     # A and B are both in that season's tournament)
     if (seed_diff_flag == 1):
+        print("Computing seed difference...")
         seed_diff_mat_list = gen_seed_difference(tournament_seeds, team_ids,
                                                  training_mat, test_season_ids,
                                                  curr_season_id, curr_const)
@@ -546,52 +423,25 @@ def main():
         curr_feature_seed_scale = feature_normalize(seed_diff_curr_season[:, 3])
         x_curr_mat = numpy.c_[x_curr_mat, curr_feature_seed_scale]
 
-    # Run nonconjugate gradient algorithm
-    num_features = x_mat.shape[1]
-    num_train_ex = x_mat.shape[0]
-    # print("num_features = %d" % num_features)
-    # print("num_train_ex = %d" % num_train_ex)
-    ones_vec = numpy.ones((num_train_ex, 1))
-    x_mat_aug = numpy.c_[ones_vec, x_mat]
-    y_vec = numpy.reshape(label_vec, (num_train_ex, 1))
-    theta_vec = numpy.zeros((num_features+1, 1))
-    theta_vec_flat = numpy.ndarray.flatten(theta_vec)
-    # f_min_ncg_out = fmin_ncg(compute_cost, theta_vec_flat,
-                             # fprime=compute_gradient, args=(x_mat_aug, y_vec,
-                                                            # num_train_ex),
-                             # avextol=1e-10, epsilon=1e-10, maxiter=400,
-                             # full_output=1)
-    # lamb = 0.3
-    lamb = 1
-    f_min_ncg_out = fmin_ncg(compute_cost_reg, theta_vec_flat,
-                             fprime=compute_gradient_reg, args=(x_mat_aug,
-                                                                y_vec,
-                                                                num_train_ex,
-                                                                lamb),
-                             avextol=1e-10, epsilon=1e-10, maxiter=400,
-                             full_output=1)
-    theta_opt = numpy.reshape(f_min_ncg_out[0], (num_features+1, 1), order='F')
-    print("theta:")
-    print("%s\n" % numpy.array_str(numpy.round(theta_opt, 6)))
+    # Use logistic regression for training
+    log_reg_weights = train_log_reg(x_mat, label_vec)
 
     # Plot point differential and seed difference between teams A and B
-    # return_code = plot_decision_boundary(x_mat, label_vec, theta_opt)
+    # return_code = plot_decision_boundary(x_mat, label_vec, log_reg_weights)
     # pyplot.legend(('Decision Boundary', 'Team B Wins', 'Team A Wins'),
     #               loc='lower right')
     # pyplot.show()
 
     # Compute predictions on test data
-    ones_test_vec = numpy.ones((x_test_mat.shape[0], 1))
-    x_test_mat_aug = numpy.c_[ones_test_vec, x_test_mat]
-    winning_prob = compute_sigmoid(numpy.dot(x_test_mat_aug, theta_opt))
-    init_pred_mat = srs_diff_test_season[:, 1:4]
-    test_pred_mat = numpy.c_[init_pred_mat[:, 0:2], winning_prob]
+    test_prob = test_log_reg(x_test_mat, log_reg_weights)
 
     # Coin-flip algorithm
     # pred_mat = coin_flip(team_ids)
 
     # Generate raw submission file
     test_file_name = "test_submission.csv"
+    init_pred_mat = srs_diff_test_season[:, 1:4]
+    test_pred_mat = numpy.c_[init_pred_mat[:, 0:2], test_prob]
     gen_raw_submission(test_file_name, test_pred_mat)
 
     # Load raw submission file
@@ -608,14 +458,12 @@ def main():
     print("Test binomial deviance:  %.5f" % test_log_loss)
 
     # Compute predictions on current data
-    ones_curr_vec = numpy.ones((x_curr_mat.shape[0], 1))
-    x_curr_mat_aug = numpy.c_[ones_curr_vec, x_curr_mat]
-    winning_prob = compute_sigmoid(numpy.dot(x_curr_mat_aug, theta_opt))
-    init_pred_mat = coin_flip(team_ids)
-    curr_pred_mat = numpy.c_[init_pred_mat[:, 0:2], winning_prob]
+    curr_prob = test_log_reg(x_curr_mat, log_reg_weights)
 
     # Generate raw submission file
     curr_file_name = "curr_submission.csv"
+    init_pred_mat = coin_flip(team_ids)
+    curr_pred_mat = numpy.c_[init_pred_mat[:, 0:2], curr_prob]
     gen_raw_submission(curr_file_name, curr_pred_mat)
 
     # Load raw submission file

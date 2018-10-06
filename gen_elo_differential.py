@@ -47,10 +47,10 @@ def expected_margin(elo_diff):
     Returns:
       exp_margin_A_B: Expected margin between teams A and B
     """
-    # term1 = 7.5
-    # term2 = 0.006
-    term1 = 15
-    term2 = -0.007
+    term1 = 7.5
+    term2 = 0.006
+    # term1 = 15
+    # term2 = -0.007
     exp_margin_A_B = term1+term2*elo_diff
     return exp_margin_A_B
 
@@ -66,12 +66,12 @@ def elo_update(w_elo, l_elo, margin):
     Returns:
       update: Update to Elo ratings of winning and losing teams
     """
-    # elo_K_factor = 20
-    # margin_offset = 3.0
-    # margin_power = 0.8
-    elo_K_factor = 8
-    margin_offset = 3.5
-    margin_power = 1.45
+    elo_K_factor = 20
+    margin_offset = 3.0
+    margin_power = 0.8
+    # elo_K_factor = 8
+    # margin_offset = 3.5
+    # margin_power = 1.45
     elo_diff = w_elo-l_elo
     pred = elo_pred(w_elo,l_elo)
     margin_of_victory_mult = (
