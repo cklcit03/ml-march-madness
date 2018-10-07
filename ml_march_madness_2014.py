@@ -23,6 +23,7 @@ from gen_seed_difference import gen_seed_difference
 from gen_srs_differential import gen_srs_differential
 from logistic_regression import test_log_reg
 from logistic_regression import train_log_reg
+from support_vector_machine import train_and_test_svm
 import numpy
 import itertools
 import math
@@ -342,7 +343,7 @@ def main():
     # Flags that determine which additional feature(s) are used here
     elo_diff_flag = 0
     point_diff_flag = 0
-    rpi_diff_flag = 0
+    rpi_diff_flag = 1
     seed_diff_flag = 0
 
     # Compute Elo differential between teams A and B for each season
@@ -414,7 +415,7 @@ def main():
         seed_diff_mat = seed_diff_mat_list['seed_diff_mat']
         seed_idx1 = numpy.where(seed_diff_mat[:, 4] != curr_const)
         seed_idx = seed_idx1[0]
-        feature_seed_scale = feature_normalize(seed_diff_mat[focus_idx, 4])
+        feature_seed_scale = feature_normalize(seed_diff_mat[seed_idx, 4])
         x_mat = numpy.c_[x_mat, feature_seed_scale]
         seed_diff_test_season = seed_diff_mat_list['test_season_mat']
         test_feature_seed_scale = feature_normalize(seed_diff_test_season[:, 3])
@@ -423,17 +424,32 @@ def main():
         curr_feature_seed_scale = feature_normalize(seed_diff_curr_season[:, 3])
         x_curr_mat = numpy.c_[x_curr_mat, curr_feature_seed_scale]
 
-    # Use logistic regression for training
-    log_reg_weights = train_log_reg(x_mat, label_vec)
+    # Flags that determine which algorithm(s) are used here
+    log_reg_flag = 0
+    svm_flag = 1
 
-    # Plot point differential and seed difference between teams A and B
-    # return_code = plot_decision_boundary(x_mat, label_vec, log_reg_weights)
-    # pyplot.legend(('Decision Boundary', 'Team B Wins', 'Team A Wins'),
-    #               loc='lower right')
-    # pyplot.show()
+    # Use logistic regression for training and testing
+    if (log_reg_flag == 1):
+        log_reg_weights = train_log_reg(x_mat, label_vec)
 
-    # Compute predictions on test data
-    test_prob = test_log_reg(x_test_mat, log_reg_weights)
+        # Plot point differential and seed difference between teams A and B
+        # return_code = plot_decision_boundary(x_mat, label_vec,
+        #                                      log_reg_weights)
+        # pyplot.legend(('Decision Boundary', 'Team B Wins', 'Team A Wins'),
+        #               loc='lower right')
+        # pyplot.show()
+
+        # Compute predictions on test data
+        test_prob = test_log_reg(x_test_mat, log_reg_weights)
+
+        # Compute predictions on current data
+        curr_prob = test_log_reg(x_curr_mat, log_reg_weights)
+
+    # Use SVM for training and testing
+    if (svm_flag == 1):
+        svm_list = train_and_test_svm(x_mat, label_vec, x_test_mat, x_curr_mat)
+        test_prob = svm_list['test_prob']
+        curr_prob = svm_list['curr_prob']
 
     # Coin-flip algorithm
     # pred_mat = coin_flip(team_ids)
@@ -456,9 +472,6 @@ def main():
     test_log_loss = evaluate_submission(test_tourney_results, test_submission,
                                         test_season_ids)
     print("Test binomial deviance:  %.5f" % test_log_loss)
-
-    # Compute predictions on current data
-    curr_prob = test_log_reg(x_curr_mat, log_reg_weights)
 
     # Generate raw submission file
     curr_file_name = "curr_submission.csv"
