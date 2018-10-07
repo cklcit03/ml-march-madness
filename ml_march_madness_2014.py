@@ -343,7 +343,7 @@ def main():
     # Flags that determine which additional feature(s) are used here
     elo_diff_flag = 0
     point_diff_flag = 0
-    rpi_diff_flag = 1
+    rpi_diff_flag = 0
     seed_diff_flag = 0
 
     # Compute Elo differential between teams A and B for each season

@@ -39,11 +39,17 @@ def train_and_test_svm(X_train, y_train, X_test, X_curr):
     """
     # print("Training Linear SVM ...")
     # svm_model = svm.SVC(kernel='linear',probability=True)
-    print("Training SVM with RBF Kernel (this may take 1 to 2 minutes) ...")
     # sigma_val = 0.1
     sigma_val = 5
+    # print("Training Poly SVM ...")
+    # svm_model = svm.SVC(kernel='poly', gamma=1/(2*numpy.power(sigma_val, 2)),
+    #                     probability=True)
+    print("Training SVM with RBF Kernel (this may take 1 to 2 minutes) ...")
     svm_model = svm.SVC(kernel='rbf', gamma=1/(2*numpy.power(sigma_val, 2)),
                         probability=True)
+    # print("Training Sigmoid SVM ...")
+    # svm_model = svm.SVC(kernel='sigmoid', gamma=1/(2*numpy.power(sigma_val, 2)),
+    #                     probability=True)
     svm_model.fit(X_train, y_train)
     test_prob = svm_model.predict_proba(X_test)
     curr_prob = svm_model.predict_proba(X_curr)
