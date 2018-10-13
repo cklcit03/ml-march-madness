@@ -15,6 +15,7 @@
 
 # Methods for logistic regression
 from scipy.optimize import fmin_ncg
+from compute_sigmoid import compute_sigmoid
 import numpy
 
 
@@ -23,17 +24,6 @@ class Error(Exception):
         self.value = value
     def __str__(self):
         return repr(self.value)
-
-
-def compute_sigmoid(z):
-    """ Computes sigmoid function.
-    Args:
-      z: Can be a scalar, a vector or a matrix.
-    Returns:
-      sigmoid_z: Sigmoid function value.
-    """
-    sigmoid_z = 1/(1+numpy.exp(-z))
-    return sigmoid_z
 
 
 def compute_cost(theta, X, y, num_train_ex):

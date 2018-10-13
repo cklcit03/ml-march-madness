@@ -23,6 +23,7 @@ from gen_seed_difference import gen_seed_difference
 from gen_srs_differential import gen_srs_differential
 from logistic_regression import test_log_reg
 from logistic_regression import train_log_reg
+from neural_network import train_and_test_nn
 from support_vector_machine import train_and_test_svm
 import numpy
 import itertools
@@ -426,7 +427,8 @@ def main():
 
     # Flags that determine which algorithm(s) are used here
     log_reg_flag = 0
-    svm_flag = 1
+    nn_flag = 1
+    svm_flag = 0
 
     # Use logistic regression for training and testing
     if (log_reg_flag == 1):
@@ -444,6 +446,12 @@ def main():
 
         # Compute predictions on current data
         curr_prob = test_log_reg(x_curr_mat, log_reg_weights)
+
+    # Use neural network for training and testing
+    if (nn_flag == 1):
+        nn_list = train_and_test_nn(x_mat, label_vec, x_test_mat, x_curr_mat)
+        test_prob = nn_list['test_prob']
+        curr_prob = nn_list['curr_prob']
 
     # Use SVM for training and testing
     if (svm_flag == 1):
