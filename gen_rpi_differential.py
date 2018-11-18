@@ -185,7 +185,7 @@ def opp_opp_win_pct(curr_season_results, team_id):
 
 
 def gen_rpi_differential(regular_season_results, team_ids, training_data,
-                         test_season_ids, curr_season_id, curr_const):
+                         curr_season_id, curr_const):
     """ Generates matrix of RPI differentials between teams A and B for each
         season of interest.
 
@@ -209,12 +209,11 @@ def gen_rpi_differential(regular_season_results, team_ids, training_data,
                      each row, value in Column 3 exceeds value in Column 2)
                      Column 4: 0 if team A lost to team B; otherwise, 1 (assume
                      that A and B played in that season's tournament)
-      test_season_ids: Array of integers denoting IDs of seasons for test data
       curr_season_id: Integer denoting ID of current season
       curr_const: Float denoting dummy value
 
     Returns:
-      return_list: List of three objects.
+      return_list: List of two objects.
                    rpi_diff_mat: Matrix that consists of these columns:
                                  Column 1: integer denoting season ID
                                  Column 2: integer denoting ID of team A
@@ -226,14 +225,6 @@ def gen_rpi_differential(regular_season_results, team_ids, training_data,
                                  that season's tournament)
                                  Column 5: difference between RPI of team A and
                                  RPI of team B for this season
-                   test_season_mat: Matrix that consists of these columns:
-                                    Column 1: integer denoting test season ID
-                                    Column 2: integer denoting ID of team A
-                                    Column 3: integer denoting ID of team B
-                                    (assume that in each row, value in Column 3
-                                    exceeds value in Column 2)
-                                    Column 4: difference between RPI of team A
-                                    and RPI of team B for test season
                    curr_season_mat: Matrix that consists of these columns:
                                     Column 1: integer denoting current season ID
                                     Column 2: integer denoting ID of team A
@@ -252,7 +243,6 @@ def gen_rpi_differential(regular_season_results, team_ids, training_data,
     num_unique_seasons = unique_season_ids.shape[0]
     curr_const_mat = curr_const*numpy.ones((training_data.shape[0], 1))
     rpi_diff_mat = numpy.c_[training_data, curr_const_mat]
-    num_test_seasons = 0
     for season_idx in range(0, num_unique_seasons):
         season_id = ord(unique_season_ids[season_idx])
         game_indices = numpy.where(season_ids == unique_season_ids[season_idx])
@@ -271,8 +261,7 @@ def gen_rpi_differential(regular_season_results, team_ids, training_data,
         # For each season, consider all (team A, team B) pairings where teams A
         # and B played each other in the tournament
         # Compute difference between RPI of teams A and B
-        if ((season_id not in test_season_ids) and
-            (season_id != curr_season_id)): 
+        if (season_id != curr_season_id): 
             season_idx = numpy.where((rpi_diff_mat[:, 0] == season_id))
             for pair_idx in season_idx[0]:
                 idA = rpi_diff_mat[pair_idx, 1]
@@ -283,27 +272,6 @@ def gen_rpi_differential(regular_season_results, team_ids, training_data,
                 rpiB = rpi[idB_idx[0]]
                 if (rpiA != curr_const) and (rpiB != curr_const):
                     rpi_diff_mat[pair_idx, 4] = rpiA-rpiB
-        elif (season_id in test_season_ids):
-            team_ids_list = team_ids.tolist()
-            team_id_pairs = itertools.combinations(team_ids_list, 2)
-            team_id_pairs_array = numpy.asarray(list(team_id_pairs))
-            test_season_mat = numpy.zeros((team_id_pairs_array.shape[0], 4))
-            for pair_idx in range(0, team_id_pairs_array.shape[0]):
-                idA = team_id_pairs_array[pair_idx, 0]
-                idB = team_id_pairs_array[pair_idx, 1]
-                idA_idx = numpy.where(team_ids == idA)
-                idB_idx = numpy.where(team_ids == idB)
-                rpiA = rpi[idA_idx[0]]
-                rpiB = rpi[idB_idx[0]]
-                test_season_mat[pair_idx, 0] = season_id
-                test_season_mat[pair_idx, 1] = idA
-                test_season_mat[pair_idx, 2] = idB
-                test_season_mat[pair_idx, 3] = rpiA-rpiB
-            num_test_seasons = num_test_seasons+1
-            if (num_test_seasons > 1):
-                final_test_mat = numpy.r_[final_test_mat, test_season_mat]
-            else:
-                final_test_mat = test_season_mat
         else:
             team_ids_list = team_ids.tolist()
             team_id_pairs = itertools.combinations(team_ids_list, 2)
@@ -321,6 +289,5 @@ def gen_rpi_differential(regular_season_results, team_ids, training_data,
                 curr_season_mat[pair_idx, 2] = idB
                 curr_season_mat[pair_idx, 3] = rpiA-rpiB
     return_list = {'rpi_diff_mat': rpi_diff_mat,
-                   'test_season_mat': final_test_mat,
                    'curr_season_mat': curr_season_mat}
     return return_list

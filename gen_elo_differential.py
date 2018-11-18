@@ -49,8 +49,6 @@ def expected_margin(elo_diff):
     """
     term1 = 7.5
     term2 = 0.006
-    # term1 = 15
-    # term2 = -0.007
     exp_margin_A_B = term1+term2*elo_diff
     return exp_margin_A_B
 
@@ -69,9 +67,6 @@ def elo_update(w_elo, l_elo, margin):
     elo_K_factor = 20
     margin_offset = 3.0
     margin_power = 0.8
-    # elo_K_factor = 8
-    # margin_offset = 3.5
-    # margin_power = 1.45
     elo_diff = w_elo-l_elo
     pred = elo_pred(w_elo,l_elo)
     margin_of_victory_mult = (
@@ -81,7 +76,7 @@ def elo_update(w_elo, l_elo, margin):
 
 
 def gen_elo_differential(regular_season_results, team_ids, training_data,
-                         test_season_ids, curr_season_id):
+                         curr_season_id):
     """ Generates matrix of Elo differentials between teams A and B for each
         season of interest.
 
@@ -105,11 +100,10 @@ def gen_elo_differential(regular_season_results, team_ids, training_data,
                      each row, value in Column 3 exceeds value in Column 2)
                      Column 4: 0 if team A lost to team B; otherwise, 1 (assume
                      that A and B played in that season's tournament)
-      test_season_ids: Array of integers denoting IDs of seasons for test data
       curr_season_id: Integer denoting ID of current season
 
     Returns:
-      return_list: List of three objects.
+      return_list: List of two objects.
                    elo_diff_mat: Matrix that consists of these columns:
                                  Column 1: integer denoting season ID
                                  Column 2: integer denoting ID of team A
@@ -122,15 +116,6 @@ def gen_elo_differential(regular_season_results, team_ids, training_data,
                                  Column 5: difference between final Elo rating
                                  of team A and final Elo rating of team B for
                                  this season
-                   test_season_mat: Matrix that consists of these columns:
-                                    Column 1: integer denoting test season ID
-                                    Column 2: integer denoting ID of team A
-                                    Column 3: integer denoting ID of team B
-                                    (assume that in each row, value in Column 3
-                                    exceeds value in Column 2)
-                                    Column 4: difference between final Elo
-                                    rating of team A and final Elo rating of team
-                                    B for test season
                    curr_season_mat: Matrix that consists of these columns:
                                     Column 1: integer denoting current season ID
                                     Column 2: integer denoting ID of team A
@@ -138,8 +123,8 @@ def gen_elo_differential(regular_season_results, team_ids, training_data,
                                     (assume that in each row, value in Column 3
                                     exceeds value in Column 2)
                                     Column 4: difference between final Elo
-                                    rating of team A and final Elo rating of team
-                                    B for current season
+                                    rating of team A and final Elo rating of
+                                    team B for current season
     """
     regular_season_results_no_header = regular_season_results[1:, :]
     season_ids = regular_season_results_no_header[:, 0]
@@ -152,7 +137,6 @@ def gen_elo_differential(regular_season_results, team_ids, training_data,
     elo_diff_mat = numpy.c_[training_data, curr_const_mat]
     elo_start_rating = 1500
     home_advantage = 100
-    num_test_seasons = 0
     for season_idx in range(0, num_unique_seasons):
         season_id = ord(unique_season_ids[season_idx])
         game_indices = numpy.where(season_ids == unique_season_ids[season_idx])
@@ -191,8 +175,7 @@ def gen_elo_differential(regular_season_results, team_ids, training_data,
         # For each season, consider all (team A, team B) pairings where teams A
         # and B played each other in the tournament
         # Compute difference between final Elo ratings of teams A and B
-        if ((season_id not in test_season_ids) and
-            (season_id != curr_season_id)): 
+        if ((season_id != curr_season_id)): 
             season_idx = numpy.where((elo_diff_mat[:, 0] == season_id))
             for pair_idx in season_idx[0]:
                 idA = elo_diff_mat[pair_idx, 1]
@@ -200,26 +183,6 @@ def gen_elo_differential(regular_season_results, team_ids, training_data,
                 elo_A = elo_dict[idA]
                 elo_B = elo_dict[idB]
                 elo_diff_mat[pair_idx, 4] = elo_A-elo_B
-        elif (season_id in test_season_ids):
-            team_ids_list = team_ids.tolist()
-            team_id_pairs = itertools.combinations(team_ids_list, 2)
-            team_id_pairs_array = numpy.asarray(list(team_id_pairs))
-            test_season_mat = numpy.zeros((team_id_pairs_array.shape[0], 5))
-            for pair_idx in range(0, team_id_pairs_array.shape[0]):
-                idA = team_id_pairs_array[pair_idx, 0]
-                idB = team_id_pairs_array[pair_idx, 1]
-                elo_A = elo_dict[idA]
-                elo_B = elo_dict[idB]
-                test_season_mat[pair_idx, 0] = season_id
-                test_season_mat[pair_idx, 1] = idA
-                test_season_mat[pair_idx, 2] = idB
-                test_season_mat[pair_idx, 3] = elo_A-elo_B
-                test_season_mat[pair_idx, 4] = elo_pred(elo_A, elo_B)
-            num_test_seasons = num_test_seasons+1
-            if (num_test_seasons > 1):
-                final_test_mat = numpy.r_[final_test_mat, test_season_mat]
-            else:
-                final_test_mat = test_season_mat
         else:
             team_ids_list = team_ids.tolist()
             team_id_pairs = itertools.combinations(team_ids_list, 2)
@@ -236,6 +199,5 @@ def gen_elo_differential(regular_season_results, team_ids, training_data,
                 curr_season_mat[pair_idx, 3] = elo_A-elo_B
                 curr_season_mat[pair_idx, 4] = elo_pred(elo_A, elo_B)
     return_list = {'elo_diff_mat': elo_diff_mat,
-                   'test_season_mat': final_test_mat,
                    'curr_season_mat': curr_season_mat}
     return return_list

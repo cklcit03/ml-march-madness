@@ -154,8 +154,6 @@ def train_log_reg(X, y):
     """
     num_features = X.shape[1]
     num_train_ex = X.shape[0]
-    # print("num_features = %d" % num_features)
-    # print("num_train_ex = %d" % num_train_ex)
     ones_vec = numpy.ones((num_train_ex, 1))
     X_aug = numpy.c_[ones_vec, X]
     y_vec = numpy.reshape(y, (num_train_ex, 1))
@@ -166,18 +164,18 @@ def train_log_reg(X, y):
                                                             # num_train_ex),
                              # avextol=1e-10, epsilon=1e-10, maxiter=400,
                              # full_output=1)
-    lamb = 0
-    # lamb = 1
-    print("Running logistic regression with lamb = %.3f..." % lamb)
+    # lamb = 0
+    lamb = 1
+    # print("Running logistic regression with lamb = %.3f..." % lamb)
     f_min_ncg_out = fmin_ncg(compute_cost_reg, theta_vec_flat,
                              fprime=compute_gradient_reg, args=(X_aug, y_vec,
                                                                 num_train_ex,
                                                                 lamb),
-                             avextol=1e-10, epsilon=1e-10, maxiter=400,
-                             full_output=1)
+                             avextol=1e-7, epsilon=1e-7, maxiter=400,
+                             full_output=1, disp=0)
     theta_opt = numpy.reshape(f_min_ncg_out[0], (num_features+1, 1), order='F')
-    print("theta:")
-    print("%s\n" % numpy.array_str(numpy.round(theta_opt, 6)))
+    # print("theta:")
+    # print("%s\n" % numpy.array_str(numpy.round(theta_opt, 6)))
     return theta_opt
 
 

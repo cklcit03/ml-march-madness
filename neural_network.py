@@ -252,6 +252,8 @@ def train_and_test_nn(X_train, y_train, X_test, X_curr):
                                 order='F')
     test_prob = predict(theta_1_mat, theta_2_mat, X_test)
     curr_prob = predict(theta_1_mat, theta_2_mat, X_curr)
-    return_list = {'test_prob': test_prob,
-                   'curr_prob': curr_prob}
+    return_test_prob = numpy.reshape(test_prob, (X_test.shape[0], 1))
+    return_curr_prob = numpy.reshape(curr_prob, (X_curr.shape[0], 1))
+    return_list = {'test_prob': return_test_prob,
+                   'curr_prob': return_curr_prob}
     return return_list
