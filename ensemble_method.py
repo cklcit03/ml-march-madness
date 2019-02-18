@@ -45,10 +45,10 @@ def train_and_test_em(X_train, y_train, X_test, X_curr):
     """
     # print("Training ensemble method ...")
     # em = AdaBoostClassifier(random_state=None)
-    # em = BaggingClassifier(LogisticRegression(random_state=None),
-    #                        random_state=None)
-    em = BaggingClassifier(SVC(kernel='linear',probability=True),
+    em = BaggingClassifier(LogisticRegression(random_state=None),
                            random_state=None)
+    # em = BaggingClassifier(SVC(kernel='linear',probability=True),
+    #                        random_state=None)
     # em = BaggingClassifier(SVC(kernel='poly', probability=True),
     #                        random_state=None)
     # em = BaggingClassifier(SVC(kernel='rbf', probability=True),

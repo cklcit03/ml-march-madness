@@ -76,7 +76,7 @@ def games_and_margin_matrices(curr_season_results, team_ids):
 
 
 def gen_srs_differential(regular_season_results, team_ids, training_data,
-                         curr_season_id, curr_const):
+                         curr_season_id, curr_const, year_flag):
     """ Generates matrix of SRS differentials between teams A and B for each
         season of interest.
 
@@ -102,6 +102,8 @@ def gen_srs_differential(regular_season_results, team_ids, training_data,
                      that A and B played in that season's tournament)
       curr_season_id: Integer denoting ID of current season
       curr_const: Float denoting dummy value
+      year_flag: Integer that is set to 1 if season ID is a year, and 0
+                 otherwise
 
     Returns:
       return_list: List of two objects.
@@ -130,12 +132,18 @@ def gen_srs_differential(regular_season_results, team_ids, training_data,
     unique_season_ids = numpy.unique(season_ids)
     unique_season_ids_i = numpy.zeros((unique_season_ids.shape[0], 1))
     for season_idx in range(0, unique_season_ids.shape[0]):
-        unique_season_ids_i[season_idx] = ord(unique_season_ids[season_idx])
+        if (year_flag == 1):
+            unique_season_ids_i[season_idx] = unique_season_ids[season_idx]
+        else:
+            unique_season_ids_i[season_idx] = ord(unique_season_ids[season_idx])
     num_unique_seasons = unique_season_ids.shape[0]
     curr_const_mat = curr_const*numpy.ones((training_data.shape[0], 1))
     srs_diff_mat = numpy.c_[training_data, curr_const_mat]
     for season_idx in range(0, num_unique_seasons):
-        season_id = ord(unique_season_ids[season_idx])
+        if (year_flag == 1):
+            season_id = unique_season_ids[season_idx]
+        else:
+            season_id = ord(unique_season_ids[season_idx])
         game_indices = numpy.where(season_ids == unique_season_ids[season_idx])
         season_results = regular_season_results_no_header[game_indices[0], :]
 
