@@ -14,7 +14,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # Machine Learning March Madness
-# Apply ML methods to predict outcome of 2016 NCAA Tournament
+# Apply ML methods to predict outcome of 2018 NCAA Tournament
 from matplotlib import pyplot
 from tempfile import TemporaryFile
 from gen_kenpom_differential import gen_kenpom_differential
@@ -285,20 +285,20 @@ def main():
     """ Main function
     """
     print("Loading list of teams.")
-    teams = numpy.genfromtxt("teams_2016.csv", delimiter=",")
+    teams = numpy.genfromtxt("teams_2018.csv", delimiter=",")
     team_ids = teams[1:, 0]
     print("Loading regular season results.")
     regular_season_results = (
-        numpy.genfromtxt("regular_season_results_2016.csv",
+        numpy.genfromtxt("regular_season_results_2018.csv",
                          delimiter=","))
     print("Loading tournament results.")
-    tourney_results = numpy.genfromtxt("tourney_results_prev_2016.csv",
+    tourney_results = numpy.genfromtxt("tourney_results_prev_2018.csv",
                                        delimiter=",")
     print("Loading current tournament results.")
-    curr_tourney_results = numpy.genfromtxt("tourney_results_2016.csv",
+    curr_tourney_results = numpy.genfromtxt("tourney_results_2018.csv",
                                             delimiter=",")
     print("Loading KenPom data.")
-    kenpom_data = numpy.genfromtxt("kenpom_2016.csv", delimiter=",")
+    kenpom_data = numpy.genfromtxt("kenpom_2018.csv", delimiter=",")
 
     # Generate training results
     training_mat = gen_train_results(tourney_results)
@@ -306,7 +306,7 @@ def main():
     # Initialize parameters
     bound_extreme = 0.0000000000000020278
     curr_const = 0.001
-    curr_season_id = 2016
+    curr_season_id = 2018
     feat_norm_flag = 0
     num_splits = 10
     train_ratio = 0.75
@@ -423,7 +423,7 @@ def main():
     curr_avg_prob = numpy.mean(curr_array, axis=1)
 
     # Generate raw submission file
-    curr_file_name = "curr_submission_2016.csv"
+    curr_file_name = "curr_submission_2018.csv"
     init_pred_mat = coin_flip(team_ids)
     curr_pred_mat = numpy.c_[init_pred_mat[:, 0:2], curr_avg_prob]
     gen_raw_submission(curr_file_name, curr_pred_mat, curr_season_id)

@@ -32,14 +32,14 @@ def main():
     """ Main function
     """
     print("Loading list of teams.")
-    teams = numpy.genfromtxt("teams_2017.csv", dtype=str, delimiter=",")
+    teams = numpy.genfromtxt("teams_2018.csv", dtype=str, delimiter=",")
     team_ids = teams[1:, 0]
     num_teams = team_ids.shape[0]
     team_names = teams[1:, 1]
     team_names_list = team_names.tolist()
 
     # Iterate over seasons (starting in 2001-02)
-    num_seasons = 16
+    num_seasons = 17
     base_year = 2002
     for season_idx in range(0, num_seasons):
         file_mat = 10000*numpy.ones((num_teams, 3), dtype=object)
@@ -132,7 +132,7 @@ def main():
             total_file_mat = file_mat
         else:
             total_file_mat = numpy.r_[total_file_mat, file_mat]
-    numpy.savetxt('kenpom_2017.csv', total_file_mat, fmt='%s', delimiter=',')
+    numpy.savetxt('kenpom_2018.csv', total_file_mat, fmt='%s', delimiter=',')
 
 # Call main function
 if __name__ == "__main__":

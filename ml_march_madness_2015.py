@@ -17,16 +17,8 @@
 # Apply ML methods to predict outcome of 2015 NCAA Tournament
 from matplotlib import pyplot
 from tempfile import TemporaryFile
-from ensemble_method import train_and_test_em
-from gen_elo_differential import gen_elo_differential
 from gen_kenpom_differential import gen_kenpom_differential
-from gen_point_differential import gen_point_differential
-from gen_rpi_differential import gen_rpi_differential
-from gen_seed_difference import gen_seed_difference
 from gen_srs_differential import gen_srs_differential
-from logistic_regression import test_log_reg
-from logistic_regression import train_log_reg
-from neural_network import train_and_test_nn
 from support_vector_machine import train_and_test_svm
 import numpy
 import itertools
@@ -158,7 +150,7 @@ def coin_flip(team_ids):
     return pred_mat
 
 
-def gen_raw_submission(file_name, pred_mat):
+def gen_raw_submission(file_name, pred_mat, curr_season_id):
     """ Generates raw submission file.
     Args:
       file_name: Name of raw submission file.
@@ -166,6 +158,7 @@ def gen_raw_submission(file_name, pred_mat):
                 IDs of distinct teams; each entry in third column is probability
                 that team in first column defeats team in second column.  Only
                 unordered pairings of teams appear in this matrix.
+      curr_season_id: Year of current season
     Returns:
       None.
     """
@@ -176,7 +169,7 @@ def gen_raw_submission(file_name, pred_mat):
     for pair_idx in range(0, num_pairs):
         id1 = pred_mat[pair_idx, 0].astype(float)
         id2 = pred_mat[pair_idx, 1].astype(float)
-        curr_id = "S_%d_%d" % (id1, id2)
+        curr_id = "%d_%d_%d" % (curr_season_id, id1, id2)
         file_mat[pair_idx+1, 0] = curr_id
         file_mat[pair_idx+1, 1] = str(pred_mat[pair_idx, 2])
     numpy.savetxt(file_name, file_mat, fmt='%s', delimiter=',')
@@ -186,9 +179,10 @@ def parse_raw_submission(raw_submission):
     """ Parses raw submission input and returns matrix.
     Args:
       raw_submission: Matrix of raw submission input, where first column
-                      includes entries of the form "S_A_B" where A and B are the
-                      IDs of two teams; second column includes probabilities
-                      that team A will defeat team B.
+                      includes entries of the form "YYYY_A_B" where A and B are
+                      the IDs of two teams and YYYY is current season; second
+                      column includes probabilities that team A will defeat team
+                      B.
     Returns:
       parsed_submission: Matrix with three columns, where first and second
                          columns include IDs of above-mentioned teams A and B,
@@ -279,9 +273,6 @@ def evaluate_submission(results, submission, season_ids, bound_extreme):
             # Evaluate per-game log loss
             log_loss_term1 = curr_outcome*math.log(curr_prob)
             log_loss_term2 = (1-curr_outcome)*math.log(1-curr_prob)
-            # print("log loss term = %f" % (log_loss_term1+log_loss_term2))
-            # if (abs(log_loss_term1+log_loss_term2) > 3.0):
-                # print("winner, loser = (%f, %f)" % (curr_winner, curr_loser))
             log_loss_array[curr_game_index] = log_loss_term1+log_loss_term2
             curr_game_index = curr_game_index+1
         curr_log_loss = (-1/curr_game_index)*numpy.sum(log_loss_array)
@@ -379,12 +370,6 @@ def main():
                           kenpom_x_mat]
     x_curr_mat = numpy.c_[x_curr_mat, kenpom_x_curr_mat]
 
-    # Flags that determine which algorithm(s) are used here
-    em_flag = 0
-    log_reg_flag = 0
-    nn_flag = 0
-    svm_flag = 1
-
     # Randomize train/test splits
     numpy.random.seed(10)
     test_array = numpy.zeros((num_splits, 1))
@@ -400,36 +385,11 @@ def main():
         x_test_mat = x_comb_mat[test_idx, :]
         test_label = kenpom_label_vec[test_idx]
 
-        # Use ensemble method for training and testing
-        if (em_flag == 1):
-            em_list = train_and_test_em(train_mat, train_label, x_test_mat,
-                                        x_curr_mat)
-            test_prob = em_list['test_prob']
-            curr_prob = em_list['curr_prob']
-
-        # Use logistic regression for training and testing
-        if (log_reg_flag == 1):
-            log_reg_weights = train_log_reg(train_mat, train_label)
-
-            # Compute predictions on test data
-            test_prob = test_log_reg(x_test_mat, log_reg_weights)
-
-            # Compute predictions on current data
-            curr_prob = test_log_reg(x_curr_mat, log_reg_weights)
-
-        # Use neural network for training and testing
-        if (nn_flag == 1):
-            nn_list = train_and_test_nn(train_mat, train_label, x_test_mat,
-                                        x_curr_mat)
-            test_prob = nn_list['test_prob']
-            curr_prob = nn_list['curr_prob']
-
         # Use SVM for training and testing
-        if (svm_flag == 1):
-            svm_list = train_and_test_svm(train_mat, train_label, x_test_mat,
-                                          x_curr_mat)
-            test_prob = svm_list['test_prob']
-            curr_prob = svm_list['curr_prob']
+        svm_list = train_and_test_svm(train_mat, train_label, x_test_mat,
+                                      x_curr_mat)
+        test_prob = svm_list['test_prob']
+        curr_prob = svm_list['curr_prob']
 
         # Compute evaluation function of test data
         num_test_games = test_label.shape[0]
@@ -449,8 +409,6 @@ def main():
             log_loss_term2 = (1-curr_outcome)*math.log(1-curr_game_prob)
             log_loss_array[game_index] = log_loss_term1+log_loss_term2
         test_log_loss = (-1/num_test_games)*numpy.sum(log_loss_array)
-        # print("split_idx = %d, test binomial deviance = %.5f" % (split_idx,
-        #       test_log_loss))
         test_array[split_idx] = test_log_loss
 
         # Aggregate probabilities for current season
@@ -469,7 +427,7 @@ def main():
     curr_file_name = "curr_submission_2015.csv"
     init_pred_mat = coin_flip(team_ids)
     curr_pred_mat = numpy.c_[init_pred_mat[:, 0:2], curr_avg_prob]
-    gen_raw_submission(curr_file_name, curr_pred_mat)
+    gen_raw_submission(curr_file_name, curr_pred_mat, curr_season_id)
 
     # Load raw submission file
     print("Loading curr submission file.")
