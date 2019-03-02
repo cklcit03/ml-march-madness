@@ -150,7 +150,7 @@ def coin_flip(team_ids):
     return pred_mat
 
 
-def gen_raw_submission(file_name, pred_mat, curr_season_id):
+def gen_raw_submission(file_name, pred_mat, curr_season_id, curr_tourney_teams):
     """ Generates raw submission file.
     Args:
       file_name: Name of raw submission file.
@@ -159,19 +159,25 @@ def gen_raw_submission(file_name, pred_mat, curr_season_id):
                 that team in first column defeats team in second column.  Only
                 unordered pairings of teams appear in this matrix.
       curr_season_id: Year of current season
+      curr_tourney_teams: IDs of teams in this year's tournament
     Returns:
       None.
     """
     num_pairs = pred_mat.shape[0]
-    file_mat = numpy.zeros((num_pairs+1, 2), dtype=object)
+    num_tourney_teams = curr_tourney_teams.shape[0]
+    num_tourney_pairs = (num_tourney_teams)*(num_tourney_teams-1)/2
+    file_mat = numpy.zeros((num_tourney_pairs+1, 2), dtype=object)
     file_mat[0, 0] = "id"
     file_mat[0, 1] = "pred"
+    team_counter = 0
     for pair_idx in range(0, num_pairs):
         id1 = pred_mat[pair_idx, 0].astype(float)
         id2 = pred_mat[pair_idx, 1].astype(float)
         curr_id = "%d_%d_%d" % (curr_season_id, id1, id2)
-        file_mat[pair_idx+1, 0] = curr_id
-        file_mat[pair_idx+1, 1] = str(pred_mat[pair_idx, 2])
+        if (id1 in curr_tourney_teams and id2 in curr_tourney_teams):
+            file_mat[team_counter+1, 0] = curr_id
+            file_mat[team_counter+1, 1] = str(pred_mat[pair_idx, 2])
+            team_counter = team_counter+1
     numpy.savetxt(file_name, file_mat, fmt='%s', delimiter=',')
 
 
@@ -426,7 +432,15 @@ def main():
     curr_file_name = "curr_submission_2016.csv"
     init_pred_mat = coin_flip(team_ids)
     curr_pred_mat = numpy.c_[init_pred_mat[:, 0:2], curr_avg_prob]
-    gen_raw_submission(curr_file_name, curr_pred_mat, curr_season_id)
+    curr_tourney_winners = curr_tourney_results[1:, 2].astype(int)
+    curr_tourney_losers = curr_tourney_results[1:, 4].astype(int)
+    curr_tourney_teams = numpy.union1d(curr_tourney_winners,
+                                       curr_tourney_losers)
+    curr_first_four_losers = numpy.array([1192, 1380, 1409, 1435])
+    curr_tourney_teams = numpy.union1d(curr_tourney_teams,
+                                       curr_first_four_losers)
+    gen_raw_submission(curr_file_name, curr_pred_mat, curr_season_id,
+                       curr_tourney_teams)
 
     # Load raw submission file
     print("Loading curr submission file.")
